@@ -2,3 +2,5 @@ torb
 public
 vendor/src
 !src/torb
+src/github.com
+pkg/

@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"sort"
@@ -16,11 +17,15 @@ import (
 	"strings"
 	"time"
 
+	_ "expvar"
+	_ "net/http/pprof"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
+	//	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -323,6 +328,21 @@ func main() {
 	}
 
 	e := echo.New()
+
+	// Group, Middleware and Routes for /debug/* from Go's stdlib
+	// GET handlers (or POST if it needs)
+	d := e.Group("/debug",
+		middleware.Gzip(),
+	)
+	d.GET("/vars", wrapStdHandler)
+	d.GET("/pprof/heap", wrapStdHandler)
+	d.GET("/pprof/goroutine", wrapStdHandler)
+	d.GET("/pprof/block", wrapStdHandler)
+	d.GET("/pprof/threadcreate", wrapStdHandler)
+	d.GET("/pprof/cmdline", wrapStdHandler)
+	d.GET("/pprof/profile", wrapStdHandler)
+	d.GET("/pprof/symbol", wrapStdHandler)
+	d.GET("/pprof/trace", wrapStdHandler)
 	funcs := template.FuncMap{
 		"encode_json": func(v interface{}) string {
 			b, _ := json.Marshal(v)
@@ -912,7 +932,6 @@ func main() {
 		}
 		return renderReportCSV(c, reports)
 	}, adminLoginRequired)
-
 	e.Start(":8080")
 }
 
@@ -950,4 +969,14 @@ func resError(c echo.Context, e string, status int) error {
 		status = 500
 	}
 	return c.JSON(status, map[string]string{"error": e})
+}
+
+// Wrapper for all stdlib /debug/* handlers
+func wrapStdHandler(c echo.Context) error {
+	w, r := c.Response().Writer, c.Request()
+	if h, p := http.DefaultServeMux.Handler(r); len(p) != 0 {
+		h.ServeHTTP(w, r)
+		return nil
+	}
+	return echo.NewHTTPError(http.StatusNotFound)
 }
