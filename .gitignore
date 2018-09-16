@@ -1,3 +1,4 @@
 torb
 public
 vendor/src
+!src/torb
