@@ -50,6 +50,7 @@ type Sheets struct {
 	Total   int      `json:"total"`
 	Remains int      `json:"remains"`
 	Detail  []*Sheet `json:"detail,omitempty"`
+	Count   int
 	Price   int64    `json:"price"`
 }
 
@@ -258,6 +259,10 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 	event.Sheets["A"].Remains = 150
 	event.Sheets["B"].Remains = 300
 	event.Sheets["C"].Remains = 500
+	event.Sheets["S"].Count = 0
+	event.Sheets["A"].Count = 0
+	event.Sheets["B"].Count = 0
+	event.Sheets["C"].Count = 0
 
 	rows, err := db.Query("SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)", event.ID)
 	if err == sql.ErrNoRows {
@@ -287,7 +292,6 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 
 	for i := range orderdSheets {
 		var sheet = orderdSheets[i]
-
 		reservation, exist := reservedSheets[sheet.ID]
 		if exist {
 			sheet.Mine = reservation.userID == loginUserID
@@ -296,9 +300,21 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 			event.Remains--
 			event.Sheets[sheet.Rank].Remains--
 		}
-		event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
+		event.Sheets[sheet.Rank].Count ++
 	}
-
+	event.Sheets["S"].Detail = make([]*Sheet,event.Sheets["S"].Count)
+	event.Sheets["A"].Detail = make([]*Sheet,event.Sheets["A"].Count)
+	event.Sheets["B"].Detail = make([]*Sheet,event.Sheets["B"].Count)
+	event.Sheets["C"].Detail = make([]*Sheet,event.Sheets["C"].Count)
+	event.Sheets["S"].Count = 0
+	event.Sheets["A"].Count = 0
+	event.Sheets["B"].Count = 0
+	event.Sheets["C"].Count = 0
+	for i := range orderdSheets {
+		var sheet = orderdSheets[i]
+		event.Sheets[sheet.Rank].Detail[event.Sheets[sheet.Rank].Count] = &sheet
+		event.Sheets[sheet.Rank].Count ++
+	}
 	return &event, nil
 }
 
