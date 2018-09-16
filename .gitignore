@@ -2,5 +2,6 @@ torb
 public
 vendor/src
 !src/torb
+src/golang.org
 src/github.com
 pkg/
