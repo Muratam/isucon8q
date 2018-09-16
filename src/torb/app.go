@@ -229,7 +229,7 @@ func getEvents(all bool) ([]*Event, error) {
 
 type ReservedSheet struct {
 	Sheet
-	userID int64
+	userID     int64
 	reservedAt *time.Time
 }
 
@@ -861,7 +861,7 @@ func getAdminEventSaleById(c echo.Context) error {
 		return resError(c, "not_found", 404)
 	}
 
-	rows, err := db.Query("SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.event_id = ? ORDER BY reserved_at ASC FOR UPDATE", eventID)
+	rows, err := db.Query("SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.event_id = ? ORDER BY reserved_at", eventID)
 	if err != nil {
 		return err
 	}
@@ -892,7 +892,7 @@ func getAdminEventSaleById(c echo.Context) error {
 	return renderReportCSV(c, reports)
 }
 func getAdminEventsSales(c echo.Context) error {
-	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price, e.id as event_id, e.price as event_price from reservations r inner join sheets s on s.id = r.sheet_id inner join events e on e.id = r.event_id order by reserved_at asc for update")
+	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price, e.id as event_id, e.price as event_price from reservations r inner join sheets s on s.id = r.sheet_id inner join events e on e.id = r.event_id order by reserved_at")
 	if err != nil {
 		return err
 	}
