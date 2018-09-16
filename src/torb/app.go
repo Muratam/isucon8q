@@ -267,7 +267,10 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 			event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
 		}
 		return &event, nil
+	} else {
+		return nil, err
 	}
+	defer rows.Close()
 
 	reservedSheets := make(map[int64]ReservedSheet)
 
