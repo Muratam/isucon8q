@@ -23,8 +23,8 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
-	"github.com/labstack/echo/middleware"
-	"github.com/sevenNt/echo-pprof"
+	// "github.com/labstack/echo/middleware"
+	// "github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -937,7 +937,7 @@ func main() {
 	e := echo.New()
 	// Group, Middleware and Routes for /debug/* from Go's stdlib
 	// GET handlers (or POST if it needs)
-	echopprof.Wrap(e)
+	// echopprof.Wrap(e)
 	funcs := template.FuncMap{
 		"encode_json": encodeJson,
 	}
@@ -945,7 +945,7 @@ func main() {
 		templates: template.Must(template.New("").Delims("[[", "]]").Funcs(funcs).ParseGlob("views/*.tmpl")),
 	}
 	e.Use(session.Middleware(sessions.NewCookieStore([]byte("secret"))))
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{Output: os.Stderr}))
+	//e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{Output: os.Stderr}))
 	e.Static("/", "public")
 	e.GET("/", getIndex, fillinUser)
 	e.GET("/initialize", getInitialize)
