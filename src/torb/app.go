@@ -985,8 +985,7 @@ func renderReportCSV(c echo.Context, reports []Report) error {
 
 	body := bytes.NewBufferString("reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at\n")
 	for _, v := range reports {
-		body.WriteString(fmt.Sprintf("%d,%d,%s,%d,%d,%d,%s,%s\n",
-			v.ReservationID, v.EventID, v.Rank, v.Num, v.Price, v.UserID, v.SoldAt, v.CanceledAt))
+		body.WriteString(strconv.Itoa(int(v.ReservationID)) + "," + strconv.Itoa(int(v.EventID)) + "," + v.Rank + "," + strconv.Itoa(int(v.Num)) + "," + strconv.Itoa(int(v.Price)) + "," + strconv.Itoa(int(v.UserID)) + "," + v.SoldAt + "," + v.CanceledAt)
 	}
 
 	c.Response().Header().Set("Content-Type", `text/csv; charset=UTF-8`)
