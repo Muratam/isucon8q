@@ -239,7 +239,8 @@ func getEvent(eventID, loginUserID int64) (*Event, error) {
 		"C": &Sheets{},
 	}
 
-	for _, sheet := range orderdSheets {
+	for i := range orderdSheets {
+		var sheet = orderdSheets[i]
 		event.Sheets[sheet.Rank].Price = event.Price + sheet.Price
 		event.Total++
 		event.Sheets[sheet.Rank].Total++
@@ -923,10 +924,10 @@ func main() {
 	e.POST("/api/events/:id/actions/reserve", postReservation, loginRequired)
 	e.DELETE("/api/events/:id/sheets/:rank/:num/reservation", deleteReservation, loginRequired)
 	e.GET("/admin/", getAdmin, fillinAdministrator)
-	e.POST("/admin/api/actions/login",postAdminLogin )
+	e.POST("/admin/api/actions/login", postAdminLogin)
 	e.POST("/admin/api/actions/logout", postAdminLogout, adminLoginRequired)
-	e.GET("/admin/api/events", getAdminEvents , adminLoginRequired)
-	e.POST("/admin/api/events", postAdminEvents , adminLoginRequired)
+	e.GET("/admin/api/events", getAdminEvents, adminLoginRequired)
+	e.POST("/admin/api/events", postAdminEvents, adminLoginRequired)
 	e.GET("/admin/api/events/:id", getAdminEventById, adminLoginRequired)
 	e.POST("/admin/api/events/:id/actions/edit", postAdminEdit, adminLoginRequired)
 	e.GET("/admin/api/reports/events/:id/sales", getAdminEventSaleById, adminLoginRequired)
