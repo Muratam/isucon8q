@@ -298,6 +298,7 @@ func wrappedGetEvent(eventID int64, tx *sql.Tx) (Event, error) {
 	event := v.(Event)
 	if event.Sheets == nil {
 		log.Printf("Unexpected nil Sheets:: shared: %#v, event: %#v, original: %#v, err: %#v", shared, event, originalEvent, err)
+		log.Println("err == sql.ErrNoRows :", err == sql.ErrNoRows)
 	}
 	return v.(Event), err
 }
@@ -668,6 +669,7 @@ func getEventById(c echo.Context) error {
 	event, err := getEvent(eventID, loginUserID)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			log.Println("HERE:TYAGE")
 			return resError(c, "not_found", 404)
 		}
 		return err
@@ -678,6 +680,7 @@ func getEventById(c echo.Context) error {
 	log.Printf("sanitized: %#v\n", sanitized)
 	return c.JSON(200, sanitized)
 }
+
 func postReservation(c echo.Context) (err error) {
 	defer func(){
 		if err != nil {
