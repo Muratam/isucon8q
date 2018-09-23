@@ -42,13 +42,13 @@ type Event struct {
 
 	Total   int                `json:"total"`
 	Remains int                `json:"remains"`
-	Sheets  map[string]*Sheets `json:"sheets,omitempty"`
+	Sheets  map[string]Sheets `json:"sheets,omitempty"`
 }
 
 type Sheets struct {
 	Total   int      `json:"total"`
 	Remains int      `json:"remains"`
-	Detail  []*Sheet `json:"detail,omitempty"`
+	Detail  []Sheet `json:"detail,omitempty"`
 	Price   int64    `json:"price"`
 	Count   int
 }
@@ -220,10 +220,11 @@ func getEvents(all bool) ([]*Event, error) {
 		if err != nil {
 			return nil, err
 		}
-		for k := range event.Sheets {
-			event.Sheets[k].Detail = nil
+		for k, v := range event.Sheets {
+			v.Detail = nil
+			event.Sheets[k] = v
 		}
-		events[i] = event
+		events[i] = &event
 	}
 	return events, nil
 }
@@ -246,8 +247,8 @@ func getSheetRankIndex(rank string) int {
 		return 0
 	}
 }
-func toMappedSheets(eventSheets []*Sheets) map[string]*Sheets {
-	return map[string]*Sheets{
+func toMappedSheets(eventSheets []Sheets) map[string]Sheets {
+	return map[string]Sheets{
 		"S": eventSheets[0],
 		"A": eventSheets[1],
 		"B": eventSheets[2],
@@ -255,27 +256,27 @@ func toMappedSheets(eventSheets []*Sheets) map[string]*Sheets {
 	}
 }
 
-func initSheets(price int64) []*Sheets {
-	eventSheets := []*Sheets{
-		&Sheets{
+func initSheets(price int64) []Sheets {
+	eventSheets := []Sheets{
+		Sheets{
 			Price:   price + 5000,
 			Total:   50,
 			Remains: 50,
 			Count:   0,
 		},
-		&Sheets{
+		Sheets{
 			Price:   price + 3000,
 			Total:   150,
 			Remains: 150,
 			Count:   0,
 		},
-		&Sheets{
+		Sheets{
 			Price:   price + 1000,
 			Total:   300,
 			Remains: 300,
 			Count:   0,
 		},
-		&Sheets{
+		Sheets{
 			Price:   price,
 			Total:   500,
 			Remains: 500,
@@ -287,15 +288,15 @@ func initSheets(price int64) []*Sheets {
 
 var eventGroup singleflight.Group
 
-func wrappedGetEvent(eventID int64, tx *sql.Tx) (*Event, error) {
+func wrappedGetEvent(eventID int64, tx *sql.Tx) (Event, error) {
 	v, err, _ := eventGroup.Do(strconv.FormatInt(eventID, 10), func() (interface{}, error) {
 		e, err := getEventImpl(eventID, tx)
 		return e, err
 	})
-	return v.(*Event), err
+	return v.(Event), err
 }
 
-func getEventImpl(eventID int64, tx *sql.Tx) (*Event, error) {
+func getEventImpl(eventID int64, tx *sql.Tx) (Event, error) {
 	var event Event
 	var row *sql.Row
 	sql1 := "SELECT * FROM events WHERE id = ?"
@@ -305,7 +306,7 @@ func getEventImpl(eventID int64, tx *sql.Tx) (*Event, error) {
 		row = db.QueryRow(sql1, eventID)
 	}
 	if err := row.Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
-		return nil, err
+		return Event{}, err
 	}
 	event.Total = 1000
 	event.Remains = 1000
@@ -323,12 +324,12 @@ func getEventImpl(eventID int64, tx *sql.Tx) (*Event, error) {
 		for i := range orderdSheets {
 			var sheet = orderdSheets[i]
 			rankIndex := getSheetRankIndex(sheet.Rank)
-			eventSheets[rankIndex].Detail = append(eventSheets[rankIndex].Detail, &sheet)
+			eventSheets[rankIndex].Detail = append(eventSheets[rankIndex].Detail, sheet)
 		}
 		event.Sheets = toMappedSheets(eventSheets)
-		return &event, nil
+		return event, nil
 	} else if err != nil {
-		return nil, err
+		return Event{}, err
 	}
 	defer rows.Close()
 
@@ -339,7 +340,7 @@ func getEventImpl(eventID int64, tx *sql.Tx) (*Event, error) {
 		var reservedAt *time.Time
 		err := rows.Scan(&userID, &sheetID, &reservedAt)
 		if err != nil {
-			return nil, err
+			return Event{}, err
 		}
 		reservedSheets[sheetID] = ReservedSheet{sheets[sheetID-1], userID, reservedAt}
 	}
@@ -350,7 +351,7 @@ func getEventImpl(eventID int64, tx *sql.Tx) (*Event, error) {
 		eventSheets[rankIndex].Count++
 	}
 	for i := 0; i < 4; i++ {
-		eventSheets[i].Detail = make([]*Sheet, eventSheets[i].Count)
+		eventSheets[i].Detail = make([]Sheet, eventSheets[i].Count)
 		eventSheets[i].Count = 0
 	}
 	for i := range orderdSheets {
@@ -364,15 +365,15 @@ func getEventImpl(eventID int64, tx *sql.Tx) (*Event, error) {
 			event.Remains--
 			eventSheets[rankIndex].Remains--
 		}
-		eventSheets[rankIndex].Detail[eventSheets[rankIndex].Count] = &sheet
+		eventSheets[rankIndex].Detail[eventSheets[rankIndex].Count] = sheet
 		eventSheets[rankIndex].Count++
 	}
 	event.Sheets = toMappedSheets(eventSheets)
-	return &event, nil
+	return event, nil
 }
 
-func markMySheet(e *Event, loginUserID int64) {
-	if e != nil && loginUserID > 0 {
+func markMySheet(e Event, loginUserID int64) Event {
+	if loginUserID > 0 {
 		for rank, ss := range e.Sheets {
 			for i, s := range ss.Detail {
 				if s.ReservedBy == loginUserID {
@@ -382,16 +383,17 @@ func markMySheet(e *Event, loginUserID int64) {
 			}
 		}
 	}
+	return e
 }
 
-func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
+func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (Event, error) {
 	e, err := wrappedGetEvent(eventID, tx)
-	markMySheet(e, loginUserID)
+	e = markMySheet(e, loginUserID)
 	return e, err
 }
-func getEvent(eventID, loginUserID int64) (*Event, error) {
+func getEvent(eventID, loginUserID int64) (Event, error) {
 	e, err := wrappedGetEvent(eventID, nil)
-	markMySheet(e, loginUserID)
+	e = markMySheet(e, loginUserID)
 	return e, err
 }
 
@@ -544,7 +546,7 @@ func getUser(c echo.Context) error {
 		event.Total = 0
 		event.Remains = 0
 
-		reservation.Event = event
+		reservation.Event = &event
 		reservation.SheetRank = sheet.Rank
 		reservation.SheetNum = sheet.Num
 		reservation.Price = price
@@ -569,7 +571,7 @@ func getUser(c echo.Context) error {
 	}
 	defer rows.Close()
 
-	var recentEvents []*Event
+	var recentEvents []Event
 	for rows.Next() {
 		var eventID int64
 		if err := rows.Scan(&eventID); err != nil {
@@ -579,13 +581,14 @@ func getUser(c echo.Context) error {
 		if err != nil {
 			return err
 		}
-		for k := range event.Sheets {
-			event.Sheets[k].Detail = nil
+		for k, v := range event.Sheets {
+			v.Detail = nil
+			event.Sheets[k] = v
 		}
 		recentEvents = append(recentEvents, event)
 	}
 	if recentEvents == nil {
-		recentEvents = make([]*Event, 0)
+		recentEvents = make([]Event, 0)
 	}
 
 	return c.JSON(200, echo.Map{
@@ -661,7 +664,7 @@ func getEventById(c echo.Context) error {
 	} else if !event.PublicFg {
 		return resError(c, "not_found", 404)
 	}
-	return c.JSON(200, sanitizeEvent(event))
+	return c.JSON(200, sanitizeEvent(&event))
 }
 func postReservation(c echo.Context) error {
 	eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
