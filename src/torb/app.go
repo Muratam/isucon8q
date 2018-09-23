@@ -870,6 +870,7 @@ func postAdminEvents(c echo.Context) error {
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	eventGroup.Forget(strconv.FormatInt(eventID, 10))
 
 	event, err := getEvent(eventID, -1)
 	if err != nil {
@@ -1020,6 +1021,7 @@ func getAdminEventsSales(c echo.Context) error {
 }
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4",
 		os.Getenv("DB_USER"), os.Getenv("DB_PASS"),
 		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"),
