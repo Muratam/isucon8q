@@ -234,9 +234,16 @@ type ReservedSheet struct {
 	reservedAt *time.Time
 }
 
-func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
+func getEventImpl(eventID ,loginUserID int64,tx *sql.Tx) (*Event, error) {
 	var event Event
-	if err := tx.QueryRow("SELECT * FROM events WHERE id = ?", eventID).Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
+	var row *sql.Row
+	sql1 := "SELECT * FROM events WHERE id = ?"
+	if tx != nil {
+		row = tx.QueryRow(sql1, eventID)
+	} else {
+    row = db.QueryRow(sql1, eventID)
+	}
+	if err := row.Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
 		return nil, err
 	}
 	event.Total = 1000
@@ -264,7 +271,15 @@ func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, er
 	event.Sheets["B"].Count = 0
 	event.Sheets["C"].Count = 0
 
-	rows, err := tx.Query("SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)", event.ID)
+
+	var rows *sql.Rows
+	var err error
+	sql2 := "SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)"
+	if tx != nil {
+		rows,err = tx.Query(sql2, eventID)
+	} else {
+    rows,err = db.Query(sql2, eventID)
+	}
 	if err == sql.ErrNoRows {
 		event.Remains = 1000
 		for i := range orderdSheets {
@@ -314,74 +329,15 @@ func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, er
 	return &event, nil
 }
 
-func getEvent(eventID, loginUserID int64) (*Event, error) {
-	var event Event
-	if err := db.QueryRow("SELECT * FROM events WHERE id = ?", eventID).Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
-		return nil, err
-	}
-	event.Total = 1000
-	event.Remains = 1000
-	event.Sheets = map[string]*Sheets{
-		"S": &Sheets{},
-		"A": &Sheets{},
-		"B": &Sheets{},
-		"C": &Sheets{},
-	}
-	event.Sheets["S"].Price = event.Price + 5000
-	event.Sheets["A"].Price = event.Price + 3000
-	event.Sheets["B"].Price = event.Price + 1000
-	event.Sheets["C"].Price = event.Price
-	event.Sheets["S"].Total = 50
-	event.Sheets["A"].Total = 150
-	event.Sheets["B"].Total = 300
-	event.Sheets["C"].Total = 500
-	event.Sheets["S"].Remains = 50
-	event.Sheets["A"].Remains = 150
-	event.Sheets["B"].Remains = 300
-	event.Sheets["C"].Remains = 500
 
-	rows, err := db.Query("SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)", event.ID)
-	if err == sql.ErrNoRows {
-		event.Remains = 1000
-		for i := range orderdSheets {
-			var sheet = orderdSheets[i]
-			event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
-		}
-		return &event, nil
-	} else if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	reservedSheets := make(map[int64]ReservedSheet)
-
-	for rows.Next() {
-		var userID int64
-		var sheetID int64
-		var reservedAt *time.Time
-		err := rows.Scan(&userID, &sheetID, &reservedAt)
-		if err != nil {
-			return nil, err
-		}
-		reservedSheets[sheetID] = ReservedSheet{sheets[sheetID-1], userID, reservedAt}
-	}
-
-	for i := range orderdSheets {
-		var sheet = orderdSheets[i]
-
-		reservation, exist := reservedSheets[sheet.ID]
-		if exist {
-			sheet.Mine = reservation.userID == loginUserID
-			sheet.Reserved = true
-			sheet.ReservedAtUnix = reservation.reservedAt.Unix()
-			event.Remains--
-			event.Sheets[sheet.Rank].Remains--
-		}
-		event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
-	}
-
-	return &event, nil
+func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
+	return getEventImpl(eventID,loginUserID,tx)
 }
+func getEvent(eventID, loginUserID int64) (*Event, error) {
+	return getEventImpl(eventID,loginUserID,nil)
+}
+
+
 
 func sanitizeEvent(e *Event) *Event {
 	sanitized := *e
