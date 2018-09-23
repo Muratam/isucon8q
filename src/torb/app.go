@@ -418,7 +418,7 @@ func encodeJson(v interface{}) string {
 func getIndex(c echo.Context) error {
 	// aokabi
 	var events []*Event
-	rows, err := db.Query("SELECT e.id, e.tile, e.price r.remains FROM events e inner join remains r on r.event_id = e.id order by e.id asc")
+	rows, err := db.Query("SELECT e.id, e.tile, e.price r.num FROM events e inner join remains r on r.event_id = e.id order by e.id asc")
 	if err != nil {
 		return err
 	}
