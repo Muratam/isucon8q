@@ -13,9 +13,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
-	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -921,7 +919,7 @@ func getAdminEventSaleById(c echo.Context) error {
 		return resError(c, "not_found", 404)
 	}
 
-	rows, err := db.Query("SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.event_id = ? ORDER BY reserved_at", eventID)
+	rows, err := db.Query("SELECT r.*, s.rank AS sheet_rank, s.num AS sheet_num, s.price AS sheet_price, e.price AS event_price FROM reservations r INNER JOIN sheets s ON s.id = r.sheet_id INNER JOIN events e ON e.id = r.event_id WHERE r.event_id = ? ORDER BY r.id", eventID)
 	if err != nil {
 		return err
 	}
@@ -960,7 +958,7 @@ func getAdminEventsSales(c echo.Context) error {
 	defer func() {
 		adminFewTimeMutex.Unlock()
 	}()
-	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price, e.id as event_id, e.price as event_price from reservations r inner join sheets s on s.id = r.sheet_id inner join events e on e.id = r.event_id order by reserved_at")
+	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price, e.id as event_id, e.price as event_price from reservations r inner join sheets s on s.id = r.sheet_id inner join events e on e.id = r.event_id order by r.id")
 	if err != nil {
 		return err
 	}
@@ -1051,8 +1049,6 @@ type Report struct {
 }
 
 func renderReportCSV(c echo.Context, reports []Report) error {
-	sort.Slice(reports, func(i, j int) bool { return strings.Compare(reports[i].SoldAt, reports[j].SoldAt) < 0 })
-
 	body := bytes.NewBufferString("reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at\n")
 	for _, v := range reports {
 		body.WriteString(fmt.Sprintf("%d,%d,%s,%d,%d,%d,%s,%s\n",
