@@ -234,6 +234,43 @@ type ReservedSheet struct {
 	reservedAt *time.Time
 }
 
+func initSheets(price int64) []*Sheets {
+	sheets := make([]*Sheets,4) // S,A,B,C
+	sheets[0].Price = price + 5000
+	sheets[1].Price = price + 3000
+	sheets[2].Price = price + 1000
+	sheets[3].Price = price
+	sheets[0].Total = 50
+	sheets[1].Total = 150
+	sheets[2].Total = 300
+	sheets[3].Total = 500
+	sheets[0].Remains = 50
+	sheets[1].Remains = 150
+	sheets[2].Remains = 300
+	sheets[3].Remains = 500
+	sheets[0].Count = 0
+	sheets[1].Count = 0
+	sheets[2].Count = 0
+	sheets[3].Count = 0
+	return sheets
+}
+func getSheetRankIndex(rank string) int {
+	switch rank {
+  case "C" : return 3
+  case "B" : return 2
+  case "A" : return 1
+  default : return 0
+	}
+}
+func toMappedSheets(sheets []*Sheets ) map[string]*Sheets{
+	return map[string]*Sheets{
+		"S": sheets[0],
+		"A": sheets[1],
+		"B": sheets[2],
+	  "C": sheets[3],
+	}
+}
+
 func getEventImpl(eventID ,loginUserID int64,tx *sql.Tx) (*Event, error) {
 	var event Event
 	var row *sql.Row
@@ -248,30 +285,7 @@ func getEventImpl(eventID ,loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
 	event.Total = 1000
 	event.Remains = 1000
-	event.Sheets = map[string]*Sheets{
-		"S": &Sheets{},
-		"A": &Sheets{},
-		"B": &Sheets{},
-		"C": &Sheets{},
-	}
-	event.Sheets["S"].Price = event.Price + 5000
-	event.Sheets["A"].Price = event.Price + 3000
-	event.Sheets["B"].Price = event.Price + 1000
-	event.Sheets["C"].Price = event.Price
-	event.Sheets["S"].Total = 50
-	event.Sheets["A"].Total = 150
-	event.Sheets["B"].Total = 300
-	event.Sheets["C"].Total = 500
-	event.Sheets["S"].Remains = 50
-	event.Sheets["A"].Remains = 150
-	event.Sheets["B"].Remains = 300
-	event.Sheets["C"].Remains = 500
-	event.Sheets["S"].Count = 0
-	event.Sheets["A"].Count = 0
-	event.Sheets["B"].Count = 0
-	event.Sheets["C"].Count = 0
-
-
+	eventSheets := initSheets(event.Price)
 	var rows *sql.Rows
 	var err error
 	sql2 := "SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)"
@@ -284,8 +298,10 @@ func getEventImpl(eventID ,loginUserID int64,tx *sql.Tx) (*Event, error) {
 		event.Remains = 1000
 		for i := range orderdSheets {
 			var sheet = orderdSheets[i]
-			event.Sheets[sheet.Rank].Detail = append(event.Sheets[sheet.Rank].Detail, &sheet)
+			rankIndex := getSheetRankIndex(sheet.Rank)
+			eventSheets[rankIndex].Detail = append(eventSheets[rankIndex].Detail, &sheet)
 		}
+		event.Sheets = toMappedSheets(eventSheets)
 		return &event, nil
 	} else if err != nil {
 		return nil, err
@@ -308,24 +324,27 @@ func getEventImpl(eventID ,loginUserID int64,tx *sql.Tx) (*Event, error) {
 	for i := range orderdSheets {
 		var sheet = orderdSheets[i]
 		reservation, exist := reservedSheets[sheet.ID]
+		rankIndex := getSheetRankIndex(sheet.Rank)
 		if exist {
 			sheet.Mine = reservation.userID == loginUserID
 			sheet.Reserved = true
 			sheet.ReservedAtUnix = reservation.reservedAt.Unix()
 			event.Remains--
-			event.Sheets[sheet.Rank].Remains--
+			eventSheets[rankIndex].Remains--
 		}
-		event.Sheets[sheet.Rank].Count ++
+		eventSheets[rankIndex].Count ++
 	}
-	for _ , s := range []string{"S","A","B","C"} {
-		event.Sheets[s].Detail = make([]*Sheet,event.Sheets[s].Count)
-		event.Sheets[s].Count = 0
+	for i := 0 ; i < 4 ; i++ {
+		eventSheets[i].Detail = make([]*Sheet,eventSheets[i].Count)
+		eventSheets[i].Count = 0
 	}
 	for i := range orderdSheets {
 		var sheet = orderdSheets[i]
-		event.Sheets[sheet.Rank].Detail[event.Sheets[sheet.Rank].Count] = &sheet
-		event.Sheets[sheet.Rank].Count ++
+		rankIndex := getSheetRankIndex(sheet.Rank)
+		eventSheets[rankIndex].Detail[eventSheets[rankIndex].Count] = &sheet
+		eventSheets[rankIndex].Count ++
 	}
+	event.Sheets = toMappedSheets(eventSheets)
 	return &event, nil
 }
 
@@ -336,8 +355,6 @@ func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, er
 func getEvent(eventID, loginUserID int64) (*Event, error) {
 	return getEventImpl(eventID,loginUserID,nil)
 }
-
-
 
 func sanitizeEvent(e *Event) *Event {
 	sanitized := *e
