@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -987,19 +986,7 @@ func getAdminEventSaleById(c echo.Context) error {
 }
 
 
-var adminFewTimeMutex sync.Mutex
-var locked bool = false
 func getAdminEventsSales(c echo.Context) error {
-	if locked {
-		return resError(c,"500",500)
-	}
-	tick := time.After(20 * time.Second)
-	adminFewTimeMutex.Lock()
-	locked = true
-	defer func() {
-		locked = false
-		adminFewTimeMutex.Unlock()
-	}()
 	rows, err := db.Query(`select * from reservations`)
 	if err != nil {
 		return err
@@ -1031,7 +1018,6 @@ func getAdminEventsSales(c echo.Context) error {
 	c.Response().Header().Set("Content-Type", `text/csv; charset=UTF-8`)
 	c.Response().Header().Set("Content-Disposition", `attachment; filename="report.csv"`)
 	_, err = io.Copy(c.Response(), body)
-	<-tick
 	return err
 }
 
