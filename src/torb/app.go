@@ -334,7 +334,8 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	if err == sql.ErrNoRows {
 		event.Remains = 1000
 		for i := range orderdSheets {
-			eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = &orderdSheets[i]
+			var sheet = &orderdSheets[i]
+			eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = sheet
 		}
 		event.Sheets = toMappedSheets(eventSheets)
 		return &event, nil
@@ -344,7 +345,8 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	defer rows.Close()
 
 	for i := range orderdSheets {
-		eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = &orderdSheets[i]
+		var sheet = &orderdSheets[i]
+		eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = sheet
 	}
   // ⬆ ここまで順番固定
 	//
