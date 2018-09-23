@@ -33,7 +33,10 @@
                 <h5 class="mb-1">{{ event.title }}</h5>
                 <small class="text-muted">{{ event.remains }} / {{ event.total }}</small>
               </div>
-              <span class="badge badge-dark" v-for="rank in ranks">{{ rank }} <small>{{ .prices.prices[rank].num }}円</small></span>
+              <span class="badge badge-dark">S<small>{{ [[ .sheetPrice.Prices.S.Num ]] + event.price }}円</small></span>
+              <span class="badge badge-dark">A<small>{{ [[ .sheetPrice.Prices.A.Num ]] + event.price }}円</small></span>
+              <span class="badge badge-dark">B<small>{{ [[ .sheetPrice.Prices.B.Num ]] + event.price }}円</small></span>
+              <span class="badge badge-dark">C<small>{{ [[ .sheetPrice.Prices.C.Num ]] + event.price }}円</small></span>
             </a>
           </div>
         </div>
