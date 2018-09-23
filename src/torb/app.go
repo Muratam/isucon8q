@@ -22,7 +22,6 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
-	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -87,9 +86,17 @@ type Administrator struct {
 	PassHash  string `json:"pass_hash,omitempty"`
 }
 
+type SheetPrice struct {
+	Num int64 `json:"num,omitempty"`
+}
+
+type SheetPrices struct {
+	Prices map[string]*SheetPrice `json:"prices,omitempty`
+}
+
 var (
 	eventPrice map[int64]int64
-	sheetPrice map[string]int64
+	sheetPrice SheetPrices
 )
 
 func sessUserID(c echo.Context) int64 {
@@ -466,17 +473,18 @@ func getInitialize(c echo.Context) error {
 		eventPrice[event.ID] = event.Price
 	}
 
-	sheetPrice = make(map[string]int64)
+	sheetPrice = make(map[string]*SheetPrice)
 	rows, err = db.Query("SELECT rank, price FROM sheets")
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
-		var sheet Sheet
-		if err := rows.Scan(&sheet.Rank, &sheet.Price); err != nil {
+		var sheet SheetPrice
+		var rank string
+		if err := rows.Scan(&rank, &sheet.Num); err != nil {
 			return err
 		}
-		sheetPrice[sheet.Rank] = sheet.Price
+		sheetPrice[rank] = &sheet
 	}
 	// remain更新
 	events, err := getEvents(false)
