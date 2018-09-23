@@ -255,28 +255,59 @@ func initSheets(price int64) []*Sheets {
 			Total:  50,
 			Remains:50,
 			Count:  0,
+			Detail : make([]*Sheet,50),
 		},
 		&Sheets{
 			Price:  price + 3000,
 			Total:  150,
 			Remains:150,
 			Count:  0,
+			Detail : make([]*Sheet,150),
 		},
 		&Sheets{
 			Price:  price + 1000,
 			Total:  300,
 			Remains:300,
 			Count:  0,
+			Detail : make([]*Sheet,300),
 		},
 		&Sheets{
 			Price:  price,
 			Total:  500,
 			Remains:500,
 			Count:  0,
+			Detail : make([]*Sheet,500),
 		},
 	}
 	return eventSheets
 }
+func getRankIndexByID(i int) int {
+	// A : [0 , 150)
+	// B : [150, 450)
+	// C : [450, 950)
+	// S : [950, 1000)
+	if i < 150 {
+		return 1
+	} else if i < 450 {
+		return 2
+	} else if i < 950 {
+		return 3
+	} else  {
+		return 0
+	}
+}
+func getDetailIndexByID(i int) int {
+	if i < 150 {
+		return i
+	} else if i < 450 {
+		return i - 150
+	} else if i < 950 {
+		return i - 450
+	} else  {
+		return i - 950
+	}
+}
+
 func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	var event Event
 	var row *sql.Row
@@ -303,9 +334,7 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	if err == sql.ErrNoRows {
 		event.Remains = 1000
 		for i := range orderdSheets {
-			var sheet = orderdSheets[i]
-			rankIndex := getSheetRankIndex(sheet.Rank)
-			eventSheets[rankIndex].Detail = append(eventSheets[rankIndex].Detail, &sheet)
+			eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = &orderdSheets[i]
 		}
 		event.Sheets = toMappedSheets(eventSheets)
 		return &event, nil
@@ -314,7 +343,11 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
 	defer rows.Close()
 
-	reservedSheets := make(map[int64]ReservedSheet)
+	for i := range orderdSheets {
+		eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = &orderdSheets[i]
+	}
+  // ⬆ ここまで順番固定
+	//
 	for rows.Next() {
 		var userID int64
 		var sheetID int64
@@ -323,31 +356,22 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 		if err != nil {
 			return nil, err
 		}
-		reservedSheets[sheetID] = ReservedSheet{sheets[sheetID-1], userID, reservedAt}
-	}
-
-	for i := range orderdSheets {
-		var sheet = orderdSheets[i]
-		rankIndex := getSheetRankIndex(sheet.Rank)
-		eventSheets[rankIndex].Count ++
-	}
-	for i := 0 ; i < 4 ; i++ {
-		eventSheets[i].Detail = make([]*Sheet,eventSheets[i].Count)
-		eventSheets[i].Count = 0
-	}
-	for i := range orderdSheets {
-		var sheet = orderdSheets[i]
-		reservation, exist := reservedSheets[sheet.ID]
-		rankIndex := getSheetRankIndex(sheet.Rank)
-		if exist {
-			sheet.Mine = reservation.userID == loginUserID
-			sheet.Reserved = true
-			sheet.ReservedAtUnix = reservation.reservedAt.Unix()
-			event.Remains--
-			eventSheets[rankIndex].Remains--
+		// reservation, exist := reservedSheets[sheet.ID]
+		// reservedSheets[sheetID] = ReservedSheet{sheets[sheetID-1], userID, reservedAt}
+		i := 0
+		if sheetID <= 50 {
+			i = int(sheetID) + 950
+		} else {
+			i = int(sheetID) - 50
 		}
-		eventSheets[rankIndex].Detail[eventSheets[rankIndex].Count] = &sheet
-		eventSheets[rankIndex].Count ++
+		var sheet = orderdSheets[i]
+		rankIndex := getSheetRankIndex(sheet.Rank)
+		sheet.Mine = userID == loginUserID
+		sheet.Reserved = true
+		sheet.ReservedAtUnix = reservedAt.Unix()
+		event.Remains--
+		eventSheets[rankIndex].Remains--
+		eventSheets[rankIndex].Detail[getDetailIndexByID(i)] = &sheet
 	}
 	event.Sheets = toMappedSheets(eventSheets)
 	return &event, nil
