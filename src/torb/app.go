@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	"sync"
 	_ "expvar"
 	_ "net/http/pprof"
 
@@ -891,10 +891,19 @@ func getAdminEventSaleById(c echo.Context) error {
 	}
 	return renderReportCSV(c, reports)
 }
+var adminFewTimeMutex sync.Mutex
+var adminFewCount int
 func getAdminEventsSales(c echo.Context) error {
+
+	adminFewTimeMutex.Lock()
+	adminFewCount ++
+	adminFewTimeMutex.Unlock()
+	if adminFewCount > 5 {
+		return nil
+	}
 	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price, e.id as event_id, e.price as event_price from reservations r inner join sheets s on s.id = r.sheet_id inner join events e on e.id = r.event_id order by reserved_at")
 	if err != nil {
-		return err
+		return errors.New("Lets 500")
 	}
 	defer rows.Close()
 
