@@ -652,6 +652,7 @@ func getEventById(c echo.Context) error {
 	if err != nil {
 		return resError(c, "not_found", 404)
 	}
+	log.Printf("getEventById:: ID: %d\n", eventID)
 
 	loginUserID := int64(-1)
 	if user, err := getLoginUser(c); err == nil {
@@ -667,13 +668,21 @@ func getEventById(c echo.Context) error {
 	} else if !event.PublicFg {
 		return resError(c, "not_found", 404)
 	}
-	return c.JSON(200, sanitizeEvent(&event))
+	sanitized := sanitizeEvent(&event)
+	log.Printf("sanitized: %#v\n", sanitized)
+	return c.JSON(200, sanitized)
 }
-func postReservation(c echo.Context) error {
+func postReservation(c echo.Context) (err error) {
+	defer func(){
+		if err != nil {
+			log.Printf("err: %#v\n", err)
+		}
+	}()
 	eventID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		return resError(c, "not_found", 404)
 	}
+	log.Printf("postReservation:: ID: %d\n", eventID)
 	var params struct {
 		Rank string `json:"sheet_rank"`
 	}
