@@ -88,7 +88,6 @@ type Administrator struct {
 
 var (
 	eventPrice map[int64]int64
-	sheetPrice map[string]int64
 )
 
 func sessUserID(c echo.Context) int64 {
@@ -438,19 +437,9 @@ func encodeJson(v interface{}) string {
 	return string(b)
 }
 func getIndex(c echo.Context) error {
-	// aokabi
-	var events []*Event
-	rows, err := db.Query("SELECT e.id, e.tile, e.price r.remains FROM events e inner join remains r on r.event_id = e.id order by e.id asc")
+	events, err := getEvents(false)
 	if err != nil {
 		return err
-	}
-	for rows.Next() {
-		var event Event
-		if err := rows.Scan(&event.ID, &event.Title, &event.Price, &event.Remains); err != nil {
-			return err
-		}
-		event.Total = 1000
-		events = append(events, &event)
 	}
 	for i, v := range events {
 		events[i] = sanitizeEvent(v)
@@ -476,33 +465,13 @@ func getInitialize(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	for rows.Next() {
 		var event Event
 		if err := rows.Scan(&event.ID, &event.Price); err != nil {
 			return err
 		}
 		eventPrice[event.ID] = event.Price
-	}
-
-	sheetPrice = make(map[string]int64)
-	rows, err = db.Query("SELECT rank, price FROM sheets")
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var sheet Sheet
-		if err := rows.Scan(&sheet.Rank, &sheet.Price); err != nil {
-			return err
-		}
-		sheetPrice[sheet.Rank] = sheet.Price
-	}
-	// remain更新
-	events, err := getEvents(false)
-	if err != nil {
-		return err
-	}
-	for _, v := range events {
-		db.Query("INSERT INTO remains (event_id, num) VALUES (?, ?)", v.ID, v.Remains)
 	}
 	// end aokabi
 
@@ -752,11 +721,6 @@ func postReservation(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
-	_, err = tx.Exec("UPDATE remains SET num = num-1 where event_id = ?", event.ID)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
 	reservationID, err = res.LastInsertId()
 	if err != nil {
 		tx.Rollback()
@@ -908,14 +872,11 @@ func postAdminEvents(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
-
 	eventID, err := res.LastInsertId()
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
-	_, err = tx.Exec("INSERT INTO remains (event_id, num) VALUES (?, ?)", eventID, 1000)
-
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -1029,11 +990,18 @@ func getAdminEventSaleById(c echo.Context) error {
 var adminFewTimeMutex sync.Mutex
 
 func getAdminEventsSales(c echo.Context) error {
+	tick := time.After(50 * time.Second)
+	adminFewTimeMutex.Lock()
+	defer func() {
+		adminFewTimeMutex.Unlock()
+	}()
+	//TODO: ここを直す
 	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r inner join sheets s on s.id = r.sheet_id order by r.id")
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
+
 	var reports []Report
 	for rows.Next() {
 		var reservation Reservation
@@ -1057,7 +1025,9 @@ func getAdminEventsSales(c echo.Context) error {
 		}
 		reports = append(reports, report)
 	}
-	return renderReportCSV(c, reports)
+	err = renderReportCSV(c, reports)
+	<-tick
+	return err
 }
 
 func main() {
