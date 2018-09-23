@@ -62,6 +62,7 @@ type Sheet struct {
 	Reserved       bool       `json:"reserved,omitempty"`
 	ReservedAt     *time.Time `json:"-"`
 	ReservedAtUnix int64      `json:"reserved_at,omitempty"`
+	ReservedBy     int64      `json:"-"`
 }
 
 type Reservation struct {
@@ -282,7 +283,7 @@ func initSheets(price int64) []*Sheets {
 	}
 	return eventSheets
 }
-func getEventImpl(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
+func getEventImpl(eventID int64, tx *sql.Tx) (*Event, error) {
 	var event Event
 	var row *sql.Row
 	sql1 := "SELECT * FROM events WHERE id = ?"
@@ -345,9 +346,9 @@ func getEventImpl(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
 		reservation, exist := reservedSheets[sheet.ID]
 		rankIndex := getSheetRankIndex(sheet.Rank)
 		if exist {
-			sheet.Mine = reservation.userID == loginUserID
 			sheet.Reserved = true
 			sheet.ReservedAtUnix = reservation.reservedAt.Unix()
+			sheet.ReservedBy = reservation.userID
 			event.Remains--
 			eventSheets[rankIndex].Remains--
 		}
@@ -358,11 +359,28 @@ func getEventImpl(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
 	return &event, nil
 }
 
+func markMySheet(e *Event, loginUserID int64) {
+	if e != nil && loginUserID > 0 {
+		for rank, ss := range e.Sheets {
+			for i, s := range ss.Detail {
+				if s.ReservedBy == loginUserID {
+					s.Mine = true
+					e.Sheets[rank].Detail[i] = s
+				}
+			}
+		}
+	}
+}
+
 func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
-	return getEventImpl(eventID, loginUserID, tx)
+	e, err := getEventImpl(eventID, tx)
+	markMySheet(e, loginUserID)
+	return e, err
 }
 func getEvent(eventID, loginUserID int64) (*Event, error) {
-	return getEventImpl(eventID, loginUserID, nil)
+	e, err := getEventImpl(eventID, nil)
+	markMySheet(e, loginUserID)
+	return e, err
 }
 
 func sanitizeEvent(e *Event) *Event {
