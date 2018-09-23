@@ -89,6 +89,7 @@ type Administrator struct {
 var (
 	eventPrice map[int64]int64
 )
+var reservations []Reservation
 
 func sessUserID(c echo.Context) int64 {
 	sess, _ := session.Get("session", c)
@@ -451,6 +452,7 @@ func getIndex(c echo.Context) error {
 	})
 }
 func getInitialize(c echo.Context) error {
+	reservations = make([]Reservation,0)
 	cmd := exec.Command("../../db/init.sh")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -716,12 +718,21 @@ func postReservation(c echo.Context) error {
 		}
 		return err
 	}
-	res, err := tx.Exec("INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, ?)", event.ID, sheet.ID, user.ID, time.Now().UTC().Format("2006-01-02 15:04:05.000000"))
+	now := time.Now()
+	res, err := tx.Exec("INSERT INTO reservations (event_id, sheet_id, user_id, reserved_at) VALUES (?, ?, ?, ?)", event.ID, sheet.ID, user.ID, now.UTC().Format("2006-01-02 15:04:05.000000"))
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 	reservationID, err = res.LastInsertId()
+	reservation := 	Reservation{
+		ID: int64(len(reservations) + 1),
+		EventID:event.ID,
+		SheetID:sheet.ID,
+		UserID:user.ID,
+		ReservedAt:&now,
+	}
+	reservations = append(reservations,reservation)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -789,7 +800,8 @@ func deleteReservation(c echo.Context) error {
 		return resError(c, "not_permitted", 403)
 	}
 
-	if _, err := tx.Exec("UPDATE reservations SET canceled_at = ? WHERE id = ?", time.Now().UTC().Format("2006-01-02 15:04:05.000000"), reservation.ID); err != nil {
+	now := time.Now()
+	if _, err := tx.Exec("UPDATE reservations SET canceled_at = ? WHERE id = ?", now.UTC().Format("2006-01-02 15:04:05.000000"), reservation.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -797,7 +809,7 @@ func deleteReservation(c echo.Context) error {
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-
+	reservations[reservation.ID].CanceledAt = &now
 	return c.NoContent(204)
 }
 func getAdmin(c echo.Context) error {
@@ -985,7 +997,23 @@ func getAdminEventSaleById(c echo.Context) error {
 	}
 	return renderReportCSV(c, reports)
 }
-
+func reservationToCSVRow(reservation Reservation) string {
+	sheetIndex := getIndexBySheetId(int(reservation.SheetID))
+	var canceledAt string = ""
+	if reservation.CanceledAt != nil {
+		canceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
+	}
+	return 	fmt.Sprintf(
+		"%d,%d,%s,%d,%d,%d,%s,%s\n",
+		reservation.ID,
+		reservation.EventID,
+		orderdSheets[sheetIndex].Rank,
+		orderdSheets[sheetIndex].Num,
+		eventPrice[reservation.EventID] + orderdSheets[sheetIndex].Price, // WARN
+		reservation.UserID,
+		reservation.ReservedAt.Format("2006-01-02T15:04:05.000000Z"),
+		canceledAt)
+}
 func getAdminEventsSales(c echo.Context) error {
 	rows, err := db.Query(`select * from reservations`)
 	if err != nil {
@@ -993,27 +1021,8 @@ func getAdminEventsSales(c echo.Context) error {
 	}
 	defer rows.Close()
 	body := bytes.NewBufferString("reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at\n")
-	for rows.Next() {
-		var reservation Reservation
-		if err := rows.Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt); err != nil {
-			return err
-		}
-		sheetIndex := getIndexBySheetId(int(reservation.SheetID))
-		var canceledAt string = ""
-		if reservation.CanceledAt != nil {
-			canceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
-		}
-		body.WriteString(
-			fmt.Sprintf(
-				"%d,%d,%s,%d,%d,%d,%s,%s\n",
-				reservation.ID,
-				reservation.EventID,
-				orderdSheets[sheetIndex].Rank,
-				orderdSheets[sheetIndex].Num,
-				eventPrice[reservation.EventID] + orderdSheets[sheetIndex].Price,
-				reservation.UserID,
-				reservation.ReservedAt.Format("2006-01-02T15:04:05.000000Z"),
-				canceledAt))
+	for _,reservation := range reservations {
+		body.WriteString(reservationToCSVRow(reservation))
 	}
 	c.Response().Header().Set("Content-Type", `text/csv; charset=UTF-8`)
 	c.Response().Header().Set("Content-Disposition", `attachment; filename="report.csv"`)
