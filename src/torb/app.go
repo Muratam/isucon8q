@@ -289,10 +289,16 @@ func initSheets(price int64) []Sheets {
 var eventGroup singleflight.Group
 
 func wrappedGetEvent(eventID int64, tx *sql.Tx) (Event, error) {
-	v, err, _ := eventGroup.Do(strconv.FormatInt(eventID, 10), func() (interface{}, error) {
-		e, err := getEventImpl(eventID, tx)
-		return e, err
+	var originalEvent Event
+	var err error
+	v, err, shared := eventGroup.Do(strconv.FormatInt(eventID, 10), func() (interface{}, error) {
+		originalEvent, err = getEventImpl(eventID, tx)
+		return originalEvent, err
 	})
+	event := v.(Event)
+	if event.Sheets == nil {
+		log.Printf("Unexpected nil Sheets:: shared: %#v, event: %#v, original: %#v, err: %#v", shared, event, originalEvent, err)
+	}
 	return v.(Event), err
 }
 
