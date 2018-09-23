@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
+	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -442,7 +443,7 @@ func getIndex(c echo.Context) error {
 	//for i, v := range events {
 	//	events[i] = sanitizeEvent(v)
 	//}
-	fmt.Println(sheetPrice)
+	fmt.Println(sheetPrice.Prices)
 	return c.Render(200, "index.tmpl", echo.Map{
 		"events":     events,
 		"user":       c.Get("user"),
@@ -473,19 +474,21 @@ func getInitialize(c echo.Context) error {
 		eventPrice[event.ID] = event.Price
 	}
 
-	sheetPrice = make(map[string]*SheetPrice)
-	rows, err = db.Query("SELECT rank, price FROM sheets")
+	rows, err = db.Query("SELECT rank, price FROM sheets group by rank")
 	if err != nil {
 		return err
 	}
+	sheetPrice.Prices = make(map[string]*SheetPrice, 0)
 	for rows.Next() {
 		var sheet SheetPrice
 		var rank string
 		if err := rows.Scan(&rank, &sheet.Num); err != nil {
 			return err
 		}
-		sheetPrice[rank] = &sheet
+		fmt.Println(rank)
+		sheetPrice.Prices[rank] = &sheet
 	}
+
 	// remain更新
 	events, err := getEvents(false)
 	if err != nil {
