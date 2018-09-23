@@ -995,14 +995,12 @@ func getAdminEventsSales(c echo.Context) error {
 	body := bytes.NewBufferString("reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at\n")
 	for rows.Next() {
 		var reservation Reservation
-		if err := rows.Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt); err != nil {
+		var reservedAt string = ""
+		var canceledAt string = ""
+		if err := rows.Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservedAt, &canceledAt); err != nil {
 			return err
 		}
 		sheetIndex := getIndexBySheetId(int(reservation.SheetID))
-		var canceledAt string = ""
-		if reservation.CanceledAt != nil {
-			canceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
-		}
 		body.WriteString(
 			fmt.Sprintf(
 				"%d,%d,%s,%d,%d,%d,%s,%s\n",
@@ -1012,7 +1010,7 @@ func getAdminEventsSales(c echo.Context) error {
 				orderdSheets[sheetIndex].Num,
 				eventPrice[reservation.EventID] + orderdSheets[sheetIndex].Price,
 				reservation.UserID,
-				reservation.ReservedAt.Format("2006-01-02T15:04:05.000000Z"),
+				reservedAt,
 				canceledAt))
 	}
 	c.Response().Header().Set("Content-Type", `text/csv; charset=UTF-8`)
