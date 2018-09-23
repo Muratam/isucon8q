@@ -428,17 +428,18 @@ func getIndex(c echo.Context) error {
 		if err := rows.Scan(&event.ID, &event.Title, &event.Price, &event.Remains); err != nil {
 			return err
 		}
+		fmt.Println(event.Price)
 		event.Total = 1000
 		events = append(events, &event)
 	}
-	for i, v := range events {
-		events[i] = sanitizeEvent(v)
-	}
+	//for i, v := range events {
+	//	events[i] = sanitizeEvent(v)
+	//}
 	fmt.Println(events)
 	return c.Render(200, "index.tmpl", echo.Map{
-		"events": events,
-		"user":   c.Get("user"),
-		"origin": c.Scheme() + "://" + c.Request().Host,
+		"events":     events,
+		"user":       c.Get("user"),
+		"origin":     c.Scheme() + "://" + c.Request().Host,
 		"sheetPrice": sheetPrice,
 	})
 }
