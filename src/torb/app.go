@@ -89,6 +89,7 @@ type Administrator struct {
 
 var (
 	eventPrice map[int64]int64
+	sheetPrice map[string]int64
 )
 
 func sessUserID(c echo.Context) int64 {
@@ -416,9 +417,19 @@ func encodeJson(v interface{}) string {
 	return string(b)
 }
 func getIndex(c echo.Context) error {
-	events, err := getEvents(false)
+	// aokabi
+	var events []*Event
+	rows, err := db.Query("SELECT e.id, e.tile, e.price r.remains FROM events e inner join remains r on r.event_id = e.id order by e.id asc");
 	if err != nil {
 		return err
+	}
+	for rows.Next() {
+			var event Event
+			if err := rows.Scan(&event.ID, &event.Title, &event.Price, $event.Remains); err != nil {
+			return err
+		}
+		event.Total = 1000
+		events = append(events, event)
 	}
 	for i, v := range events {
 		events[i] = sanitizeEvent(v)
@@ -427,6 +438,7 @@ func getIndex(c echo.Context) error {
 		"events": events,
 		"user":   c.Get("user"),
 		"origin": c.Scheme() + "://" + c.Request().Host,
+		""
 	})
 }
 func getInitialize(c echo.Context) error {
@@ -444,13 +456,25 @@ func getInitialize(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-
 	for rows.Next() {
 		var event Event
 		if err := rows.Scan(&event.ID, &event.Price); err != nil {
 			return err
 		}
 		eventPrice[event.ID] = event.Price
+	}
+
+	sheetPrice = make(map[string]int64)
+	rows, err := db.Query("SELECT rank, price FROM sheets")
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var sheet Sheet
+		if err := rows.Scan(&sheet.Rank, &sheet.Price); err != nil {
+			return err
+		}
+		sheetPrice[sheet.Rank] = sheet.Price
 	}
 	// end aokabi
 
@@ -700,6 +724,11 @@ func postReservation(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
+	err := tx.Exec("UPDATE remains SET num = num-1 where event_id = event.ID")
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 	reservationID, err = res.LastInsertId()
 	if err != nil {
 		tx.Rollback()
@@ -851,15 +880,18 @@ func postAdminEvents(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
+	
 	eventID, err := res.LastInsertId()
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
+	err := tx.Exec("INSERT INTO remains (event_id, num) VALUES (?, ?)", eventID, 1000)
+	
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-
+	
 	event, err := getEvent(eventID, -1)
 	if err != nil {
 		return err
