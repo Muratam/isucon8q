@@ -87,6 +87,10 @@ type Administrator struct {
 	PassHash  string `json:"pass_hash,omitempty"`
 }
 
+var (
+	eventPrice map[int64]int64
+)
+
 func sessUserID(c echo.Context) int64 {
 	sess, _ := session.Get("session", c)
 	var userID int64
@@ -433,6 +437,24 @@ func getInitialize(c echo.Context) error {
 	if err != nil {
 		return nil
 	}
+
+	// aokabi
+	eventPrice = make(map[int64]int64)
+	rows, err := db.Query("SELECT id, price FROM events")
+	if err != nil {
+		return nil, err
+	}
+
+	var events []*Event
+	for rows.Next() {
+		var event Event
+		if err := rows.Scan(&event.ID, &event.Price); err != nil {
+			return nil, err
+		}
+		eventPrice[event.ID] = event.Price
+	}
+	// end aokabi
+	
 	return c.NoContent(204)
 }
 func postUsers(c echo.Context) error {
@@ -954,7 +976,8 @@ func getAdminEventsSales(c echo.Context) error {
 	defer func() {
 		adminFewTimeMutex.Unlock()
 	}()
-	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price, e.id as event_id, e.price as event_price from reservations r inner join sheets s on s.id = r.sheet_id inner join events e on e.id = r.event_id order by r.id")
+	//TODO: ここを直す
+	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r inner join sheets s on s.id = r.sheet_id order by r.id")
 	if err != nil {
 		return err
 	}
@@ -965,17 +988,19 @@ func getAdminEventsSales(c echo.Context) error {
 		var reservation Reservation
 		var sheet Sheet
 		var event Event
-		if err := rows.Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt, &sheet.Rank, &sheet.Num, &sheet.Price, &event.ID, &event.Price); err != nil {
+		if err := rows.Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
 			return err
 		}
 		report := Report{
 			ReservationID: reservation.ID,
-			EventID:       event.ID,
+			//todo
+			EventID:       /*event.ID*/reservation.EventID,
 			Rank:          sheet.Rank,
 			Num:           sheet.Num,
 			UserID:        reservation.UserID,
 			SoldAt:        reservation.ReservedAt.Format("2006-01-02T15:04:05.000000Z"),
-			Price:         event.Price + sheet.Price,
+			// TODO koko
+			Price:         /*Event.Price*/ eventPrice[reservation.EventID]+ sheet.Price,
 		}
 		if reservation.CanceledAt != nil {
 			report.CanceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
