@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
+	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -432,11 +433,16 @@ func getIndex(c echo.Context) error {
 	}
 	for rows.Next() {
 		var event Event
+		event.Sheets = make(map[string]*Sheets)
 		if err := rows.Scan(&event.ID, &event.Title, &event.Price, &event.Remains); err != nil {
 			return err
 		}
 		fmt.Println(event.Price)
 		event.Total = 1000
+		event.Sheets["S"] = &Sheets{}
+		event.Sheets["A"] = &Sheets{}
+		event.Sheets["B"] = &Sheets{}
+		event.Sheets["C"] = &Sheets{}
 		event.Sheets["S"].Price = sheetPrice.Prices["S"].Num
 		event.Sheets["A"].Price = sheetPrice.Prices["A"].Num
 		event.Sheets["B"].Price = sheetPrice.Prices["B"].Num
@@ -476,7 +482,7 @@ func getInitialize(c echo.Context) error {
 		eventPrice[event.ID] = event.Price
 	}
 
-	sheetPrice = make(map[string]*SheetPrice)
+	sheetPrice.Prices = make(map[string]*SheetPrice)
 	rows, err = db.Query("SELECT rank, price FROM sheets group by rank")
 	if err != nil {
 		return err
@@ -487,7 +493,7 @@ func getInitialize(c echo.Context) error {
 		if err := rows.Scan(&rank, &sheet.Num); err != nil {
 			return err
 		}
-		sheetPrice[rank] = &sheet
+		sheetPrice.Prices[rank] = &sheet
 	}
 	// remain更新
 	events, err := getEvents(false)
