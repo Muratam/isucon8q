@@ -14,7 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"sync"
+	// "sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -987,44 +987,27 @@ func getAdminEventSaleById(c echo.Context) error {
 	return renderReportCSV(c, reports)
 }
 
-var adminFewTimeMutex sync.Mutex
-var adminFewTimeLocked bool = false
 func getAdminEventsSales(c echo.Context) error {
-	if adminFewTimeLocked {
-		return resError(c,"lets 500",500)
-	}
-	adminFewTimeMutex.Lock()
-	adminFewTimeLocked = true
-	defer func() {
-		tick := time.After(20 * time.Second)
-		<-tick
-		adminFewTimeLocked = false
-		adminFewTimeMutex.Unlock()
-	}()
-	//TODO: ここを直す
-	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r inner join sheets s on s.id = r.sheet_id order by r.id")
+	rows, err := db.Query(`select * from reservations`)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
-
 	var reports []Report
 	for rows.Next() {
 		var reservation Reservation
-		var sheet Sheet
-		if err := rows.Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
+		if err := rows.Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt); err != nil {
 			return err
 		}
+		sheetIndex := getIndexBySheetId(int(reservation.SheetID))
 		report := Report{
 			ReservationID: reservation.ID,
-			//todo
-			EventID:/*event.ID*/ reservation.EventID,
-			Rank:   sheet.Rank,
-			Num:    sheet.Num,
+			EventID: reservation.EventID,
+			Rank:   orderdSheets[sheetIndex].Rank,
+			Num:    orderdSheets[sheetIndex].Num,
 			UserID: reservation.UserID,
 			SoldAt: reservation.ReservedAt.Format("2006-01-02T15:04:05.000000Z"),
-			// TODO koko
-			Price:/*Event.Price*/ eventPrice[reservation.EventID] + sheet.Price,
+			Price:  eventPrice[reservation.EventID] + orderdSheets[sheetIndex].Price,
 		}
 		if reservation.CanceledAt != nil {
 			report.CanceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
