@@ -475,6 +475,14 @@ func getInitialize(c echo.Context) error {
 		}
 		sheetPrice[sheet.Rank] = sheet.Price
 	}
+	// remain更新
+	events, err := getEvents(false)
+	if err != nil {
+		return err
+	}
+	for _, v range events {
+		db.Query("INSERT INTO remains (event_id, num) VALUES (?, ?)", v.ID, v.Remains)
+	}
 	// end aokabi
 
 	return c.NoContent(204)
