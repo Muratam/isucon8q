@@ -22,7 +22,6 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
-	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -438,17 +437,20 @@ func getIndex(c echo.Context) error {
 		}
 		fmt.Println(event.Price)
 		event.Total = 1000
+		event.Sheets["S"].Price = sheetPrice.Prices["S"].Num
+		event.Sheets["A"].Price = sheetPrice.Prices["A"].Num
+		event.Sheets["B"].Price = sheetPrice.Prices["B"].Num
+		event.Sheets["C"].Price = sheetPrice.Prices["C"].Num
 		events = append(events, &event)
 	}
 	//for i, v := range events {
 	//	events[i] = sanitizeEvent(v)
 	//}
-	fmt.Println(sheetPrice.Prices)
+	fmt.Println(sheetPrice)
 	return c.Render(200, "index.tmpl", echo.Map{
-		"events":     events,
-		"user":       c.Get("user"),
-		"origin":     c.Scheme() + "://" + c.Request().Host,
-		"sheetPrice": &sheetPrice,
+		"events": events,
+		"user":   c.Get("user"),
+		"origin": c.Scheme() + "://" + c.Request().Host,
 	})
 }
 func getInitialize(c echo.Context) error {
@@ -474,21 +476,19 @@ func getInitialize(c echo.Context) error {
 		eventPrice[event.ID] = event.Price
 	}
 
+	sheetPrice = make(map[string]*SheetPrice)
 	rows, err = db.Query("SELECT rank, price FROM sheets group by rank")
 	if err != nil {
 		return err
 	}
-	sheetPrice.Prices = make(map[string]*SheetPrice, 0)
 	for rows.Next() {
 		var sheet SheetPrice
 		var rank string
 		if err := rows.Scan(&rank, &sheet.Num); err != nil {
 			return err
 		}
-		fmt.Println(rank)
-		sheetPrice.Prices[rank] = &sheet
+		sheetPrice[rank] = &sheet
 	}
-
 	// remain更新
 	events, err := getEvents(false)
 	if err != nil {
