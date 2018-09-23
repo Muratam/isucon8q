@@ -465,6 +465,9 @@ func getInitialize(c echo.Context) error {
 	if err != nil {
 		return nil
 	}
+	for i:=int64(0); i<100; i++ {
+		eventGroup.Forget(strconv.FormatInt(i, 10))
+	}
 	return c.NoContent(204)
 }
 func postUsers(c echo.Context) error {
