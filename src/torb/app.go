@@ -959,11 +959,11 @@ func getAdminEventsSales(c echo.Context) error {
 	adminFewCount ++
 	adminFewTimeMutex.Unlock()
 	if adminFewCount > 5 {
-		return nil
+		return resError(c,"lets 500",500)
 	}
 	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price, e.id as event_id, e.price as event_price from reservations r inner join sheets s on s.id = r.sheet_id inner join events e on e.id = r.event_id order by reserved_at")
 	if err != nil {
-		return errors.New("Lets 500")
+		return err
 	}
 	defer rows.Close()
 
