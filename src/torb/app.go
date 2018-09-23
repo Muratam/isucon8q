@@ -330,6 +330,15 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 
 	for i := range orderdSheets {
 		var sheet = orderdSheets[i]
+		rankIndex := getSheetRankIndex(sheet.Rank)
+		eventSheets[rankIndex].Count ++
+	}
+	for i := 0 ; i < 4 ; i++ {
+		eventSheets[i].Detail = make([]*Sheet,eventSheets[i].Count)
+		eventSheets[i].Count = 0
+	}
+	for i := range orderdSheets {
+		var sheet = orderdSheets[i]
 		reservation, exist := reservedSheets[sheet.ID]
 		rankIndex := getSheetRankIndex(sheet.Rank)
 		if exist {
@@ -339,7 +348,8 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 			event.Remains--
 			eventSheets[rankIndex].Remains--
 		}
-		eventSheets[rankIndex].Detail = append(eventSheets[rankIndex].Detail, &sheet)
+		eventSheets[rankIndex].Detail[eventSheets[rankIndex].Count] = &sheet
+		eventSheets[rankIndex].Count ++
 	}
 	event.Sheets = toMappedSheets(eventSheets)
 	return &event, nil
