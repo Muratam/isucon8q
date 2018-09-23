@@ -370,7 +370,7 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx,noDetail bool) (*Event, 
 	}
 	defer rows.Close()
 	if noDetail {
-		eventSheets := initSheets(event.Price,true)
+		eventSheets := initSheets(event.Price,false)
 		for rows.Next() {
 			var sheetID int64
 			err := rows.Scan(&sheetID)
