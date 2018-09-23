@@ -1029,18 +1029,11 @@ func getAdminEventSaleById(c echo.Context) error {
 var adminFewTimeMutex sync.Mutex
 
 func getAdminEventsSales(c echo.Context) error {
-	tick := time.After(50 * time.Second)
-	adminFewTimeMutex.Lock()
-	defer func() {
-		adminFewTimeMutex.Unlock()
-	}()
-	//TODO: ここを直す
 	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r inner join sheets s on s.id = r.sheet_id order by r.id")
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
-
 	var reports []Report
 	for rows.Next() {
 		var reservation Reservation
@@ -1064,9 +1057,7 @@ func getAdminEventsSales(c echo.Context) error {
 		}
 		reports = append(reports, report)
 	}
-	err = renderReportCSV(c, reports)
-	<-tick
-	return err
+	return renderReportCSV(c, reports)
 }
 
 func main() {
