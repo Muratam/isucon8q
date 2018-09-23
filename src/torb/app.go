@@ -22,7 +22,6 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
-	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -419,13 +418,13 @@ func encodeJson(v interface{}) string {
 func getIndex(c echo.Context) error {
 	// aokabi
 	var events []*Event
-	rows, err := db.Query("SELECT e.id, e.tile, e.price r.remains FROM events e inner join remains r on r.event_id = e.id order by e.id asc");
+	rows, err := db.Query("SELECT e.id, e.tile, e.price r.remains FROM events e inner join remains r on r.event_id = e.id order by e.id asc")
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
-			var event Event
-			if err := rows.Scan(&event.ID, &event.Title, &event.Price, &event.Remains); err != nil {
+		var event Event
+		if err := rows.Scan(&event.ID, &event.Title, &event.Price, &event.Remains); err != nil {
 			return err
 		}
 		event.Total = 1000
@@ -438,7 +437,6 @@ func getIndex(c echo.Context) error {
 		"events": events,
 		"user":   c.Get("user"),
 		"origin": c.Scheme() + "://" + c.Request().Host,
-		""
 	})
 }
 func getInitialize(c echo.Context) error {
@@ -880,18 +878,18 @@ func postAdminEvents(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
-	
+
 	eventID, err := res.LastInsertId()
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 	err = tx.Exec("INSERT INTO remains (event_id, num) VALUES (?, ?)", eventID, 1000)
-	
+
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	
+
 	event, err := getEvent(eventID, -1)
 	if err != nil {
 		return err
