@@ -987,6 +987,11 @@ func getAdminEventSaleById(c echo.Context) error {
 }
 
 func getAdminEventsSales(c echo.Context) error {
+	tick := time.After(50 * time.Second)
+	adminFewTimeMutex.Lock()
+	defer func() {
+		adminFewTimeMutex.Unlock()
+	}()
 	rows, err := db.Query(`select * from reservations`)
 	if err != nil {
 		return err
