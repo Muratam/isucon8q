@@ -358,14 +358,15 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	for i := range orderdSheets {
 		var sheet = orderdSheets[i]
 		reservation, exist := reservedSheets[sheet.ID]
+		rankIndex := getRankIndexByID(i)
 		if exist {
 			sheet.Mine = reservation.userID == loginUserID
 			sheet.Reserved = true
 			sheet.ReservedAtUnix = reservation.reservedAt.Unix()
 			event.Remains--
-			eventSheets[getRankIndexByID(i)].Remains--
+			eventSheets[rankIndex].Remains--
 		}
-		eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = &sheet
+		eventSheets[rankIndex].Detail[getDetailIndexByID(i)] = &sheet
 	}
 
 	event.Sheets = toMappedSheets(eventSheets)
