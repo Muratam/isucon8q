@@ -22,7 +22,6 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
-	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -480,7 +479,7 @@ func getInitialize(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, v range events {
+	for _, v := range events {
 		db.Query("INSERT INTO remains (event_id, num) VALUES (?, ?)", v.ID, v.Remains)
 	}
 	// end aokabi
