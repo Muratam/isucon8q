@@ -366,7 +366,7 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
 	defer rows.Close()
 
-	reservedSheets := make(map[int64]ReservedSheet)
+	reservedSheets := make(map[int64]ReservedSheet,100)
 	for rows.Next() {
 		var userID int64
 		var sheetID int64
