@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
+	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -444,7 +445,6 @@ func getInitialize(c echo.Context) error {
 		return err
 	}
 
-	var events []*Event
 	for rows.Next() {
 		var event Event
 		if err := rows.Scan(&event.ID, &event.Price); err != nil {
@@ -986,7 +986,6 @@ func getAdminEventsSales(c echo.Context) error {
 	for rows.Next() {
 		var reservation Reservation
 		var sheet Sheet
-		var event Event
 		if err := rows.Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
 			return err
 		}
