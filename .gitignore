@@ -5,3 +5,4 @@ vendor/src
 src/golang.org
 src/github.com
 pkg/
+slow
