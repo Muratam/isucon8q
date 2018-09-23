@@ -217,13 +217,13 @@ func getEvents(all bool) ([]*Event, error) {
 		events = append(events, &event)
 	}
 	for i, v := range events {
-		event, err := getEventWithTransaction(v.ID, -1, tx)
+		event, err := getEventWithTransaction(v.ID, -1, tx,true)
 		if err != nil {
 			return nil, err
 		}
-		for k := range event.Sheets {
-			event.Sheets[k].Detail = nil
-		}
+		// for k := range event.Sheets {
+		// 	event.Sheets[k].Detail = nil
+		// }
 		events[i] = event
 	}
 	return events, nil
@@ -255,35 +255,41 @@ func toMappedSheets(eventSheets []*Sheets) map[string]*Sheets {
 	}
 }
 
-func initSheets(price int64) []*Sheets {
+func initSheets(price int64,noDetail bool) []*Sheets {
 	eventSheets := []*Sheets{
 		&Sheets{
 			Price:  price + 5000,
 			Total:  50,
 			Remains:50,
-			Detail : make([]*Sheet,50),
+			Detail : nil,
 		},
 		&Sheets{
 			Price:  price + 3000,
 			Total:  150,
 			Remains:150,
-			Detail : make([]*Sheet,150),
+			Detail : nil,
 		},
 		&Sheets{
 			Price:  price + 1000,
 			Total:  300,
 			Remains:300,
-			Detail : make([]*Sheet,300),
+			Detail : nil,
 		},
 		&Sheets{
 			Price:  price,
 			Total:  500,
 			Remains:500,
-			Detail : make([]*Sheet,500),
+			Detail : nil,
 		},
+	}
+	if noDetail {
+		return eventSheets
 	}
 	details := make([]Sheet,1000)
 	copy(details,orderdSheets)
+	for i := 0 ; i < 4 ; i ++ {
+		eventSheets[i].Detail = make([]*Sheet,eventSheets[i].Total)
+	}
 	for i := range orderdSheets {
 		eventSheets[getRankIndexByIndex(i)].Detail[getDetailIndexByIndex(i)] = &details[i]
 	}
@@ -329,7 +335,7 @@ func getIndexBySheetId(sheetId int) int {
 		return sheetId - 51
 	}
 }
-func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
+func getEventImpl(eventID, loginUserID int64,tx *sql.Tx,noDetail bool) (*Event, error) {
 	var event Event
 	var row *sql.Row
 	sql1 := "SELECT * FROM events WHERE id = ?"
@@ -343,9 +349,12 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
 	event.Total = 1000
 	event.Remains = 1000
+	sql2 := "SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)"
+	if noDetail {
+		sql2 = "SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)"
+	}
 	var rows *sql.Rows
 	var err error
-	sql2 := "SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)"
 	if tx != nil {
 		rows, err = tx.Query(sql2, eventID)
 	} else {
@@ -353,15 +362,31 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
 	if err == sql.ErrNoRows {
 		event.Remains = 1000
-		eventSheets := initSheets(event.Price)
+		eventSheets := initSheets(event.Price,false)
 		event.Sheets = toMappedSheets(eventSheets)
 		return &event, nil
 	} else if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	if noDetail {
+		eventSheets := initSheets(event.Price,true)
+		for rows.Next() {
+			var sheetID int64
+			err := rows.Scan(&sheetID)
+			if err != nil {
+				return nil, err
+			}
+			i := getIndexBySheetId(int(sheetID))
+			rankIndex := getRankIndexByIndex(i)
+			event.Remains--
+			eventSheets[rankIndex].Remains--
+		}
+		event.Sheets = toMappedSheets(eventSheets)
+		return &event, nil
+	}
 
-	eventSheets := initSheets(event.Price)
+	eventSheets := initSheets(event.Price,false)
 	for rows.Next() {
 		var userID int64
 		var sheetID int64
@@ -383,11 +408,11 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	return &event, nil
 }
 
-func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
-	return getEventImpl(eventID, loginUserID, tx)
+func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx, noDetail bool) (*Event, error) {
+	return getEventImpl(eventID, loginUserID, tx,noDetail)
 }
 func getEvent(eventID, loginUserID int64) (*Event, error) {
-	return getEventImpl(eventID, loginUserID, nil)
+	return getEventImpl(eventID, loginUserID, nil,false)
 }
 
 func sanitizeEvent(e *Event) *Event {
