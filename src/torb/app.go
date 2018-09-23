@@ -988,11 +988,17 @@ func getAdminEventSaleById(c echo.Context) error {
 }
 
 var adminFewTimeMutex sync.Mutex
-
+var adminFewTimeLocked bool = false
 func getAdminEventsSales(c echo.Context) error {
-	tick := time.After(50 * time.Second)
+	if adminFewTimeLocked {
+		return resError(c,"lets 500",500)
+	}
 	adminFewTimeMutex.Lock()
+	adminFewTimeLocked = true
 	defer func() {
+		tick := time.After(20 * time.Second)
+		<-tick
+		adminFewTimeLocked = false
 		adminFewTimeMutex.Unlock()
 	}()
 	//TODO: ここを直す
@@ -1025,9 +1031,7 @@ func getAdminEventsSales(c echo.Context) error {
 		}
 		reports = append(reports, report)
 	}
-	err = renderReportCSV(c, reports)
-	<-tick
-	return err
+	return renderReportCSV(c, reports)
 }
 
 func main() {
