@@ -206,6 +206,8 @@ func getEvents(all bool) ([]*Event, error) {
 	defer rows.Close()
 
 	var events []*Event
+	mapidtoindex := make(map[int64]int64)
+	i := 0
 	for rows.Next() {
 		var event Event
 		if err := rows.Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
@@ -214,17 +216,48 @@ func getEvents(all bool) ([]*Event, error) {
 		if !all && !event.PublicFg {
 			continue
 		}
+		event.Total = 1000
+		event.Remains = 1000
 		events = append(events, &event)
+		eventSheets := initSheets(event.Price)
+		event.Sheets = toMappedSheets(eventSheets)
+		mapidtoindex[event.ID] = i
+		i++
 	}
-	for i, v := range events {
-		event, err := getEventWithTransaction(v.ID, -1, tx)
+	sql2 := "SELECT event_id, user_id, sheet_id, reserved_at FROM reservations WHERE canceled_at IS NULL GROUP BY event_id, sheet_id HAVING reserved_at = MIN(reserved_at) order by event_id asc"
+	if tx != nil {
+		rows, err = tx.Query(sql2)
+	} else {
+		rows, err = db.Query(sql2)
+	}
+	
+	defer rows.Close()
+
+	for rows.Next() {
+		var eventID int64
+		var userID int64
+		var sheetID int64
+		var reservedAt *time.Time
+		err := rows.Scan(&eventID, &userID, &sheetID, &reservedAt)
 		if err != nil {
 			return nil, err
 		}
-		for k := range event.Sheets {
-			event.Sheets[k].Detail = nil
+		j := mapidtoindex[eventID]
+		i := getIndexBySheetId(int(sheetID))
+		rankIndex := getRankIndexByIndex(i)
+		rank := getSheetRank(rankIndex)
+		detailIndex := getDetailIndexByIndex(i)
+		events[j].Sheets[rank].Detail[detailIndex].Mine = userID == loginUserID
+		events[j].Sheets[rank].Detail[detailIndex].Reserved = true
+		events[j].Sheets[rank].Detail[detailIndex].ReservedAtUnix = reservedAt.Unix()
+		events[j].Remains--
+		events[j].Sheets[rank].Remains--
+	}
+	///////////////////////////////
+	for i, v := range events{
+		for k := range v.Sheets {
+			v.Sheets[k].Detail = nil
 		}
-		events[i] = event
 	}
 	return events, nil
 }
@@ -246,6 +279,20 @@ func getSheetRankIndex(rank string) int {
 		return 0
 	}
 }
+
+func getSheetRank(index int) string {
+	switch index{
+	case 3:
+		return "C"
+	case 2:
+		return "B"
+	case 1:
+		return "A"
+	default:
+		return "S"
+	}
+}
+
 func toMappedSheets(eventSheets []*Sheets) map[string]*Sheets {
 	return map[string]*Sheets{
 		"S": eventSheets[0],
