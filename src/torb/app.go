@@ -962,7 +962,6 @@ func getAdminEventSaleById(c echo.Context) error {
 		return err
 	}
 	defer rows.Close()
-
 	var reports []Report
 	for rows.Next() {
 		var reservation Reservation
@@ -993,28 +992,33 @@ func getAdminEventsSales(c echo.Context) error {
 		return err
 	}
 	defer rows.Close()
-	var reports []Report
+	body := bytes.NewBufferString("reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at\n")
 	for rows.Next() {
 		var reservation Reservation
 		if err := rows.Scan(&reservation.ID, &reservation.EventID, &reservation.SheetID, &reservation.UserID, &reservation.ReservedAt, &reservation.CanceledAt); err != nil {
 			return err
 		}
 		sheetIndex := getIndexBySheetId(int(reservation.SheetID))
-		report := Report{
-			ReservationID: reservation.ID,
-			EventID: reservation.EventID,
-			Rank:   orderdSheets[sheetIndex].Rank,
-			Num:    orderdSheets[sheetIndex].Num,
-			UserID: reservation.UserID,
-			SoldAt: reservation.ReservedAt.Format("2006-01-02T15:04:05.000000Z"),
-			Price:  eventPrice[reservation.EventID] + orderdSheets[sheetIndex].Price,
-		}
+		var canceledAt string = ""
 		if reservation.CanceledAt != nil {
-			report.CanceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
+			canceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
 		}
-		reports = append(reports, report)
+		body.WriteString(
+			fmt.Sprintf(
+				"%d,%d,%s,%d,%d,%d,%s,%s\n",
+				reservation.ID,
+				reservation.EventID,
+				orderdSheets[sheetIndex].Rank,
+				orderdSheets[sheetIndex].Num,
+				eventPrice[reservation.EventID] + orderdSheets[sheetIndex].Price,
+				reservation.UserID,
+				reservation.ReservedAt.Format("2006-01-02T15:04:05.000000Z"),
+				canceledAt))
 	}
-	return renderReportCSV(c, reports)
+	c.Response().Header().Set("Content-Type", `text/csv; charset=UTF-8`)
+	c.Response().Header().Set("Content-Disposition", `attachment; filename="report.csv"`)
+	_, err = io.Copy(c.Response(), body)
+	return err
 }
 
 func main() {
