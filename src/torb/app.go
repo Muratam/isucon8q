@@ -22,7 +22,6 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
-	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -442,19 +441,19 @@ func getInitialize(c echo.Context) error {
 	eventPrice = make(map[int64]int64)
 	rows, err := db.Query("SELECT id, price FROM events")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var events []*Event
 	for rows.Next() {
 		var event Event
 		if err := rows.Scan(&event.ID, &event.Price); err != nil {
-			return nil, err
+			return err
 		}
 		eventPrice[event.ID] = event.Price
 	}
 	// end aokabi
-	
+
 	return c.NoContent(204)
 }
 func postUsers(c echo.Context) error {
@@ -994,13 +993,13 @@ func getAdminEventsSales(c echo.Context) error {
 		report := Report{
 			ReservationID: reservation.ID,
 			//todo
-			EventID:       /*event.ID*/reservation.EventID,
-			Rank:          sheet.Rank,
-			Num:           sheet.Num,
-			UserID:        reservation.UserID,
-			SoldAt:        reservation.ReservedAt.Format("2006-01-02T15:04:05.000000Z"),
+			EventID:/*event.ID*/ reservation.EventID,
+			Rank:   sheet.Rank,
+			Num:    sheet.Num,
+			UserID: reservation.UserID,
+			SoldAt: reservation.ReservedAt.Format("2006-01-02T15:04:05.000000Z"),
 			// TODO koko
-			Price:         /*Event.Price*/ eventPrice[reservation.EventID]+ sheet.Price,
+			Price:/*Event.Price*/ eventPrice[reservation.EventID] + sheet.Price,
 		}
 		if reservation.CanceledAt != nil {
 			report.CanceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
