@@ -425,7 +425,7 @@ func getIndex(c echo.Context) error {
 	}
 	for rows.Next() {
 			var event Event
-			if err := rows.Scan(&event.ID, &event.Title, &event.Price, $event.Remains); err != nil {
+			if err := rows.Scan(&event.ID, &event.Title, &event.Price, &event.Remains); err != nil {
 			return err
 		}
 		event.Total = 1000
@@ -465,7 +465,7 @@ func getInitialize(c echo.Context) error {
 	}
 
 	sheetPrice = make(map[string]int64)
-	rows, err := db.Query("SELECT rank, price FROM sheets")
+	rows, err = db.Query("SELECT rank, price FROM sheets")
 	if err != nil {
 		return err
 	}
@@ -724,7 +724,7 @@ func postReservation(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
-	err := tx.Exec("UPDATE remains SET num = num-1 where event_id = event.ID")
+	err = tx.Exec("UPDATE remains SET num = num-1 where event_id = event.ID")
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -886,7 +886,7 @@ func postAdminEvents(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
-	err := tx.Exec("INSERT INTO remains (event_id, num) VALUES (?, ?)", eventID, 1000)
+	err = tx.Exec("INSERT INTO remains (event_id, num) VALUES (?, ?)", eventID, 1000)
 	
 	if err := tx.Commit(); err != nil {
 		return err
