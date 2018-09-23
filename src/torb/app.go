@@ -368,14 +368,14 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 		} else {
 			i = int(sheetID) - 50
 		}
-		var sheet = orderdSheets[i]
+		var sheet = &orderdSheets[i]
 		rankIndex := getSheetRankIndex(sheet.Rank)
 		sheet.Mine = userID == loginUserID
 		sheet.Reserved = true
 		sheet.ReservedAtUnix = reservedAt.Unix()
 		event.Remains--
 		eventSheets[rankIndex].Remains--
-		eventSheets[rankIndex].Detail[getDetailIndexByID(i)] = &sheet
+		eventSheets[rankIndex].Detail[getDetailIndexByID(i)] = sheet
 	}
 
 	event.Sheets = toMappedSheets(eventSheets)
