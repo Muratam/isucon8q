@@ -435,7 +435,7 @@ func getIndex(c echo.Context) error {
 	//for i, v := range events {
 	//	events[i] = sanitizeEvent(v)
 	//}
-	fmt.Println(events)
+	fmt.Println(sheetPrice)
 	return c.Render(200, "index.tmpl", echo.Map{
 		"events":     events,
 		"user":       c.Get("user"),
