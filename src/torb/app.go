@@ -7,6 +7,7 @@ import (
 	"errors"
 	_ "expvar"
 	"fmt"
+	"golang.org/x/sync/singleflight"
 	"html/template"
 	"io"
 	"log"
@@ -283,6 +284,17 @@ func initSheets(price int64) []*Sheets {
 	}
 	return eventSheets
 }
+
+var eventGroup singleflight.Group
+
+func wrappedGetEvent(eventID int64, tx *sql.Tx) (*Event, error) {
+	v, err, _ := eventGroup.Do(strconv.FormatInt(eventID, 10), func() (interface{}, error) {
+		e, err := getEventImpl(eventID, tx)
+		return e, err
+	})
+	return v.(*Event), err
+}
+
 func getEventImpl(eventID int64, tx *sql.Tx) (*Event, error) {
 	var event Event
 	var row *sql.Row
@@ -373,12 +385,12 @@ func markMySheet(e *Event, loginUserID int64) {
 }
 
 func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
-	e, err := getEventImpl(eventID, tx)
+	e, err := wrappedGetEvent(eventID, tx)
 	markMySheet(e, loginUserID)
 	return e, err
 }
 func getEvent(eventID, loginUserID int64) (*Event, error) {
-	e, err := getEventImpl(eventID, nil)
+	e, err := wrappedGetEvent(eventID, nil)
 	markMySheet(e, loginUserID)
 	return e, err
 }
@@ -706,6 +718,7 @@ func postReservation(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
+	eventGroup.Forget(strconv.FormatInt(eventID, 10))
 	return c.JSON(202, echo.Map{
 		"id":         reservationID,
 		"sheet_rank": params.Rank,
@@ -773,6 +786,7 @@ func deleteReservation(c echo.Context) error {
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	eventGroup.Forget(strconv.FormatInt(eventID, 10))
 
 	return c.NoContent(204)
 }
