@@ -269,7 +269,7 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 			Count:  0,
 		},
 		"C": &Sheets{
-			Price:  event.Price + 1000,
+			Price:  event.Price,
 			Total:  500,
 			Remains:500,
 			Count:  0,
@@ -284,7 +284,6 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	} else {
     rows,err = db.Query(sql2, eventID)
 	}
-
 	if err == sql.ErrNoRows {
 		event.Remains = 1000
 		for i := range orderdSheets {
