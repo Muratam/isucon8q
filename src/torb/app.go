@@ -428,7 +428,7 @@ func getIndex(c echo.Context) error {
 			return err
 		}
 		event.Total = 1000
-		events = append(events, event)
+		events = append(events, &event)
 	}
 	for i, v := range events {
 		events[i] = sanitizeEvent(v)
