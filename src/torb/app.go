@@ -722,7 +722,7 @@ func postReservation(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
-	err = tx.Exec("UPDATE remains SET num = num-1 where event_id = event.ID")
+	_, err = tx.Exec("UPDATE remains SET num = num-1 where event_id = ?", event.ID)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -884,7 +884,7 @@ func postAdminEvents(c echo.Context) error {
 		tx.Rollback()
 		return err
 	}
-	err = tx.Exec("INSERT INTO remains (event_id, num) VALUES (?, ?)", eventID, 1000)
+	_, err = tx.Exec("INSERT INTO remains (event_id, num) VALUES (?, ?)", eventID, 1000)
 
 	if err := tx.Commit(); err != nil {
 		return err
