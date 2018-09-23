@@ -439,6 +439,7 @@ func getIndex(c echo.Context) error {
 		"events": events,
 		"user":   c.Get("user"),
 		"origin": c.Scheme() + "://" + c.Request().Host,
+		"sheetPrice": sheetPrice,
 	})
 }
 func getInitialize(c echo.Context) error {
