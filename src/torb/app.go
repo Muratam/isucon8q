@@ -348,6 +348,8 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
   // ⬆ ここまで順番固定
 	//
+
+	/*
 	for rows.Next() {
 		var userID int64
 		var sheetID int64
@@ -373,6 +375,8 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 		eventSheets[rankIndex].Remains--
 		eventSheets[rankIndex].Detail[getDetailIndexByID(i)] = &sheet
 	}
+
+	*/
 	event.Sheets = toMappedSheets(eventSheets)
 	return &event, nil
 }
