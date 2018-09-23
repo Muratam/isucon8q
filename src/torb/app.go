@@ -372,7 +372,7 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 			i = int(sheetID) - 50 - 1
 		}
 		var sheet = &orderdSheets[i]
-		rankIndex := getSheetRankIndex(sheet.Rank)
+		rankIndex := getRankIndexByID(i)
 		sheet.Mine = userID == loginUserID
 		sheet.Reserved = true
 		sheet.ReservedAtUnix = reservedAt.Unix()
