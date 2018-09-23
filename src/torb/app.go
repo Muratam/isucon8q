@@ -5,19 +5,19 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	_ "expvar"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
+	_ "net/http/pprof"
 	"os"
 	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 	"sync"
-	_ "expvar"
-	_ "net/http/pprof"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
@@ -953,12 +953,13 @@ func getAdminEventSaleById(c echo.Context) error {
 }
 
 var adminFewTimeMutex sync.Mutex
+
 func getAdminEventsSales(c echo.Context) error {
+	tick := time.After(50 * time.Second)
 	adminFewTimeMutex.Lock()
-	defer func(){
+	defer func() {
 		adminFewTimeMutex.Unlock()
 	}()
-	tick := time.After(50 * time.Second)
 	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price, e.id as event_id, e.price as event_price from reservations r inner join sheets s on s.id = r.sheet_id inner join events e on e.id = r.event_id order by reserved_at")
 	if err != nil {
 		return err
