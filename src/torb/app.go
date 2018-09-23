@@ -322,7 +322,6 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
 	event.Total = 1000
 	event.Remains = 1000
-	eventSheets := initSheets(event.Price)
 	var rows *sql.Rows
 	var err error
 	sql2 := "SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)"
@@ -333,6 +332,7 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
 	if err == sql.ErrNoRows {
 		event.Remains = 1000
+		eventSheets := initSheets(event.Price)
 		for i := range orderdSheets {
 			var sheet = &orderdSheets[i]
 			eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = sheet
@@ -344,6 +344,7 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
 	defer rows.Close()
 
+	eventSheets := initSheets(event.Price)
 	for i := range orderdSheets {
 		var sheet = &orderdSheets[i]
 		eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = sheet
@@ -362,11 +363,13 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 		}
 		// reservation, exist := reservedSheets[sheet.ID]
 		// reservedSheets[sheetID] = ReservedSheet{sheets[sheetID-1], userID, reservedAt}
-		i := 0
+		// sheetID -> i
+		// if i < 950 { sheetID = i + 51 } else { sheetID = i - 949 }
+		var i int
 		if sheetID <= 50 {
-			i = int(sheetID) + 950
+			i = int(sheetID) + 950 - 1
 		} else {
-			i = int(sheetID) - 50
+			i = int(sheetID) - 50 - 1
 		}
 		var sheet = &orderdSheets[i]
 		rankIndex := getSheetRankIndex(sheet.Rank)
