@@ -993,7 +993,7 @@ func getAdminEventsSales(c echo.Context) error {
 	if locked {
 		return resError(c,"500",500)
 	}
-	tick := time.After(50 * time.Second)
+	tick := time.After(20 * time.Second)
 	adminFewTimeMutex.Lock()
 	locked = true
 	defer func() {
