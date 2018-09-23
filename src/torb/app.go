@@ -227,7 +227,6 @@ func getEvents(all bool) ([]*Event, error) {
 }
 
 type ReservedSheet struct {
-	Sheet
 	userID     int64
 	reservedAt *time.Time
 }
@@ -334,8 +333,8 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 		event.Remains = 1000
 		eventSheets := initSheets(event.Price)
 		for i := range orderdSheets {
-			var sheet = &orderdSheets[i]
-			eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = sheet
+			var sheet = orderdSheets[i]
+			eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = &sheet
 		}
 		event.Sheets = toMappedSheets(eventSheets)
 		return &event, nil
@@ -344,15 +343,7 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	}
 	defer rows.Close()
 
-	eventSheets := initSheets(event.Price)
-	for i := range orderdSheets {
-		var sheet = &orderdSheets[i]
-		eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = sheet
-	}
-  // ⬆ ここまで順番固定
-	//
-
-
+	reservedSheets := make(map[int64]ReservedSheet)
 	for rows.Next() {
 		var userID int64
 		var sheetID int64
@@ -361,24 +352,20 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 		if err != nil {
 			return nil, err
 		}
-		// reservation, exist := reservedSheets[sheet.ID]
-		// reservedSheets[sheetID] = ReservedSheet{sheets[sheetID-1], userID, reservedAt}
-		// sheetID -> i
-		// if i < 950 { sheetID = i + 51 } else { sheetID = i - 949 }
-		var i int
-		if sheetID <= 50 {
-			i = int(sheetID) + 950 - 1
-		} else {
-			i = int(sheetID) - 50 - 1
+		reservedSheets[sheetID] = ReservedSheet{userID, reservedAt}
+	}
+	eventSheets := initSheets(event.Price)
+	for i := range orderdSheets {
+		var sheet = orderdSheets[i]
+		reservation, exist := reservedSheets[sheet.ID]
+		if exist {
+			sheet.Mine = reservation.userID == loginUserID
+			sheet.Reserved = true
+			sheet.ReservedAtUnix = reservation.reservedAt.Unix()
+			event.Remains--
+			eventSheets[getRankIndexByID(i)].Remains--
 		}
-		var sheet = &orderdSheets[i]
-		rankIndex := getRankIndexByID(i)
-		sheet.Mine = userID == loginUserID
-		sheet.Reserved = true
-		sheet.ReservedAtUnix = reservedAt.Unix()
-		event.Remains--
-		eventSheets[rankIndex].Remains--
-		eventSheets[rankIndex].Detail[getDetailIndexByID(i)] = sheet
+		eventSheets[getRankIndexByID(i)].Detail[getDetailIndexByID(i)] = &sheet
 	}
 
 	event.Sheets = toMappedSheets(eventSheets)
