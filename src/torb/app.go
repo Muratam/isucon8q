@@ -988,10 +988,16 @@ func getAdminEventSaleById(c echo.Context) error {
 
 
 var adminFewTimeMutex sync.Mutex
+var locked bool = false
 func getAdminEventsSales(c echo.Context) error {
+	if locked {
+		return resError(c,"500",500)
+	}
 	tick := time.After(50 * time.Second)
 	adminFewTimeMutex.Lock()
+	locked = true
 	defer func() {
+		locked = false
 		adminFewTimeMutex.Unlock()
 	}()
 	rows, err := db.Query(`select * from reservations`)
