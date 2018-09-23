@@ -992,7 +992,6 @@ func getAdminEventsSales(c echo.Context) error {
 	tick := time.After(50 * time.Second)
 	adminFewTimeMutex.Lock()
 	defer func() {
-		<-tick
 		adminFewTimeMutex.Unlock()
 	}()
 	rows, err := db.Query(`select * from reservations`)
@@ -1026,6 +1025,7 @@ func getAdminEventsSales(c echo.Context) error {
 	c.Response().Header().Set("Content-Type", `text/csv; charset=UTF-8`)
 	c.Response().Header().Set("Content-Disposition", `attachment; filename="report.csv"`)
 	_, err = io.Copy(c.Response(), body)
+	<-tick
 	return err
 }
 
