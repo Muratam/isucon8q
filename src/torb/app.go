@@ -51,6 +51,7 @@ type Sheets struct {
 	Remains int      `json:"remains"`
 	Detail  []*Sheet `json:"detail,omitempty"`
 	Price   int64    `json:"price"`
+	Count   int
 }
 
 type Sheet struct {
@@ -249,23 +250,31 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	event.Total = 1000
 	event.Remains = 1000
 	event.Sheets = map[string]*Sheets{
-		"S": &Sheets{},
-		"A": &Sheets{},
-		"B": &Sheets{},
-		"C": &Sheets{},
+		"S": &Sheets{
+			Price:  event.Price + 5000,
+			Total:  50,
+			Remains:50,
+			Count:  0,
+		},
+		"A": &Sheets{
+			Price:  event.Price + 3000,
+			Total:  150,
+			Remains:150,
+			Count:  0,
+		},
+		"B": &Sheets{
+			Price:  event.Price + 1000,
+			Total:  300,
+			Remains:300,
+			Count:  0,
+		},
+		"C": &Sheets{
+			Price:  event.Price + 1000,
+			Total:  500,
+			Remains:500,
+			Count:  0,
+		},
 	}
-	event.Sheets["S"].Price = event.Price + 5000
-	event.Sheets["A"].Price = event.Price + 3000
-	event.Sheets["B"].Price = event.Price + 1000
-	event.Sheets["C"].Price = event.Price
-	event.Sheets["S"].Total = 50
-	event.Sheets["A"].Total = 150
-	event.Sheets["B"].Total = 300
-	event.Sheets["C"].Total = 500
-	event.Sheets["S"].Remains = 50
-	event.Sheets["A"].Remains = 150
-	event.Sheets["B"].Remains = 300
-	event.Sheets["C"].Remains = 500
 
 	var rows *sql.Rows
 	var err error
@@ -275,6 +284,7 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	} else {
     rows,err = db.Query(sql2, eventID)
 	}
+
 	if err == sql.ErrNoRows {
 		event.Remains = 1000
 		for i := range orderdSheets {
@@ -288,7 +298,6 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	defer rows.Close()
 
 	reservedSheets := make(map[int64]ReservedSheet)
-
 	for rows.Next() {
 		var userID int64
 		var sheetID int64
