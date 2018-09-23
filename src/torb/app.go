@@ -282,9 +282,10 @@ func initSheets(price int64) []*Sheets {
 			Detail : make([]*Sheet,500),
 		},
 	}
+	details := make([]Sheet,1000)
+	copy(details,orderdSheets)
 	for i := range orderdSheets {
-		var sheet = orderdSheets[i]
-		eventSheets[getRankIndexByIndex(i)].Detail[getDetailIndexByIndex(i)] = &sheet
+		eventSheets[getRankIndexByIndex(i)].Detail[getDetailIndexByIndex(i)] = &details[i]
 	}
 	return eventSheets
 }
