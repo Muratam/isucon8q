@@ -231,60 +231,65 @@ type ReservedSheet struct {
 	userID     int64
 	reservedAt *time.Time
 }
+
 func getSheetRankIndex(rank string) int {
 	switch rank {
-  case "C" : return 3
-  case "B" : return 2
-  case "A" : return 1
-  default : return 0
+	case "C":
+		return 3
+	case "B":
+		return 2
+	case "A":
+		return 1
+	default:
+		return 0
 	}
 }
-func toMappedSheets(eventSheets []*Sheets ) map[string]*Sheets{
+func toMappedSheets(eventSheets []*Sheets) map[string]*Sheets {
 	return map[string]*Sheets{
 		"S": eventSheets[0],
 		"A": eventSheets[1],
 		"B": eventSheets[2],
-	  "C": eventSheets[3],
+		"C": eventSheets[3],
 	}
 }
 
 func initSheets(price int64) []*Sheets {
 	eventSheets := []*Sheets{
 		&Sheets{
-			Price:  price + 5000,
-			Total:  50,
-			Remains:50,
-			Count:  0,
+			Price:   price + 5000,
+			Total:   50,
+			Remains: 50,
+			Count:   0,
 		},
 		&Sheets{
-			Price:  price + 3000,
-			Total:  150,
-			Remains:150,
-			Count:  0,
+			Price:   price + 3000,
+			Total:   150,
+			Remains: 150,
+			Count:   0,
 		},
 		&Sheets{
-			Price:  price + 1000,
-			Total:  300,
-			Remains:300,
-			Count:  0,
+			Price:   price + 1000,
+			Total:   300,
+			Remains: 300,
+			Count:   0,
 		},
 		&Sheets{
-			Price:  price,
-			Total:  500,
-			Remains:500,
-			Count:  0,
+			Price:   price,
+			Total:   500,
+			Remains: 500,
+			Count:   0,
 		},
 	}
 	return eventSheets
 }
-func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
+func getEventImpl(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
 	var event Event
 	var row *sql.Row
 	sql1 := "SELECT * FROM events WHERE id = ?"
 	if tx != nil {
 		row = tx.QueryRow(sql1, eventID)
 	} else {
-    row = db.QueryRow(sql1, eventID)
+		row = db.QueryRow(sql1, eventID)
 	}
 	if err := row.Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
 		return nil, err
@@ -296,9 +301,9 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	var err error
 	sql2 := "SELECT user_id, sheet_id, reserved_at FROM reservations WHERE event_id = ? AND canceled_at IS NULL GROUP BY sheet_id HAVING reserved_at = MIN(reserved_at)"
 	if tx != nil {
-		rows,err = tx.Query(sql2, eventID)
+		rows, err = tx.Query(sql2, eventID)
 	} else {
-    rows,err = db.Query(sql2, eventID)
+		rows, err = db.Query(sql2, eventID)
 	}
 	if err == sql.ErrNoRows {
 		event.Remains = 1000
@@ -329,10 +334,10 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 	for i := range orderdSheets {
 		var sheet = orderdSheets[i]
 		rankIndex := getSheetRankIndex(sheet.Rank)
-		eventSheets[rankIndex].Count ++
+		eventSheets[rankIndex].Count++
 	}
-	for i := 0 ; i < 4 ; i++ {
-		eventSheets[i].Detail = make([]*Sheet,eventSheets[i].Count)
+	for i := 0; i < 4; i++ {
+		eventSheets[i].Detail = make([]*Sheet, eventSheets[i].Count)
 		eventSheets[i].Count = 0
 	}
 	for i := range orderdSheets {
@@ -347,21 +352,18 @@ func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
 			eventSheets[rankIndex].Remains--
 		}
 		eventSheets[rankIndex].Detail[eventSheets[rankIndex].Count] = &sheet
-		eventSheets[rankIndex].Count ++
+		eventSheets[rankIndex].Count++
 	}
 	event.Sheets = toMappedSheets(eventSheets)
 	return &event, nil
 }
 
-
 func getEventWithTransaction(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
-	return getEventImpl(eventID,loginUserID,tx)
+	return getEventImpl(eventID, loginUserID, tx)
 }
 func getEvent(eventID, loginUserID int64) (*Event, error) {
-	return getEventImpl(eventID,loginUserID,nil)
+	return getEventImpl(eventID, loginUserID, nil)
 }
-
-
 
 func sanitizeEvent(e *Event) *Event {
 	sanitized := *e
