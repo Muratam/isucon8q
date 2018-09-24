@@ -207,7 +207,7 @@ func getEvents(all bool) ([]*Event, error) {
 
 	var events []*Event
 	mapidtoindex := make(map[int64]int64)
-	i := 0
+	var i int64 = 0
 	for rows.Next() {
 		var event Event
 		if err := rows.Scan(&event.ID, &event.Title, &event.PublicFg, &event.ClosedFg, &event.Price); err != nil {
@@ -230,9 +230,10 @@ func getEvents(all bool) ([]*Event, error) {
 	} else {
 		rows, err = db.Query(sql2)
 	}
-	
+
 	defer rows.Close()
 
+	fmt.Println(mapidtoindex)
 	for rows.Next() {
 		var eventID int64
 		var userID int64
@@ -242,11 +243,16 @@ func getEvents(all bool) ([]*Event, error) {
 		if err != nil {
 			return nil, err
 		}
-		j := mapidtoindex[eventID]
+		j, ok := mapidtoindex[eventID]
+		if !ok {
+			continue
+		}
+		fmt.Println(eventID, userID, sheetID)
 		i := getIndexBySheetId(int(sheetID))
 		rankIndex := getRankIndexByIndex(i)
 		rank := getSheetRank(rankIndex)
 		detailIndex := getDetailIndexByIndex(i)
+		var loginUserID int64 = -1
 		events[j].Sheets[rank].Detail[detailIndex].Mine = userID == loginUserID
 		events[j].Sheets[rank].Detail[detailIndex].Reserved = true
 		events[j].Sheets[rank].Detail[detailIndex].ReservedAtUnix = reservedAt.Unix()
@@ -254,7 +260,7 @@ func getEvents(all bool) ([]*Event, error) {
 		events[j].Sheets[rank].Remains--
 	}
 	///////////////////////////////
-	for i, v := range events{
+	for _, v := range events {
 		for k := range v.Sheets {
 			v.Sheets[k].Detail = nil
 		}
@@ -281,7 +287,7 @@ func getSheetRankIndex(rank string) int {
 }
 
 func getSheetRank(index int) string {
-	switch index{
+	switch index {
 	case 3:
 		return "C"
 	case 2:
@@ -305,32 +311,32 @@ func toMappedSheets(eventSheets []*Sheets) map[string]*Sheets {
 func initSheets(price int64) []*Sheets {
 	eventSheets := []*Sheets{
 		&Sheets{
-			Price:  price + 5000,
-			Total:  50,
-			Remains:50,
-			Detail : make([]*Sheet,50),
+			Price:   price + 5000,
+			Total:   50,
+			Remains: 50,
+			Detail:  make([]*Sheet, 50),
 		},
 		&Sheets{
-			Price:  price + 3000,
-			Total:  150,
-			Remains:150,
-			Detail : make([]*Sheet,150),
+			Price:   price + 3000,
+			Total:   150,
+			Remains: 150,
+			Detail:  make([]*Sheet, 150),
 		},
 		&Sheets{
-			Price:  price + 1000,
-			Total:  300,
-			Remains:300,
-			Detail : make([]*Sheet,300),
+			Price:   price + 1000,
+			Total:   300,
+			Remains: 300,
+			Detail:  make([]*Sheet, 300),
 		},
 		&Sheets{
-			Price:  price,
-			Total:  500,
-			Remains:500,
-			Detail : make([]*Sheet,500),
+			Price:   price,
+			Total:   500,
+			Remains: 500,
+			Detail:  make([]*Sheet, 500),
 		},
 	}
-	details := make([]Sheet,1000)
-	copy(details,orderdSheets)
+	details := make([]Sheet, 1000)
+	copy(details, orderdSheets)
 	for i := range orderdSheets {
 		eventSheets[getRankIndexByIndex(i)].Detail[getDetailIndexByIndex(i)] = &details[i]
 	}
@@ -347,7 +353,7 @@ func getRankIndexByIndex(i int) int {
 		return 2
 	} else if i < 950 {
 		return 3
-	} else  {
+	} else {
 		return 0
 	}
 }
@@ -358,7 +364,7 @@ func getDetailIndexByIndex(i int) int {
 		return i - 150
 	} else if i < 950 {
 		return i - 450
-	} else  {
+	} else {
 		return i - 950
 	}
 }
@@ -376,7 +382,7 @@ func getIndexBySheetId(sheetId int) int {
 		return sheetId - 51
 	}
 }
-func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
+func getEventImpl(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
 	var event Event
 	var row *sql.Row
 	sql1 := "SELECT * FROM events WHERE id = ?"
