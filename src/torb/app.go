@@ -88,6 +88,8 @@ type Administrator struct {
 
 var (
 	eventPrice map[int64]int64
+	canceled []int64 = make([]int64, 0, 100)
+	lastID int64 = 0
 )
 
 func sessUserID(c echo.Context) int64 {
@@ -798,6 +800,8 @@ func deleteReservation(c echo.Context) error {
 		return err
 	}
 
+	canceled = append(canceled, reservation.ID)
+
 	return c.NoContent(204)
 }
 func getAdmin(c echo.Context) error {
@@ -996,7 +1000,7 @@ func getAdminEventsSales(c echo.Context) error {
 		adminFewTimeMutex.Unlock()
 	}()
 	//TODO: ここを直す
-	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r inner join sheets s on s.id = r.sheet_id order by r.id")
+	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r where r.id > ? inner join sheets s on s.id = r.sheet_id order by r.id", lastID)
 	if err != nil {
 		return err
 	}
