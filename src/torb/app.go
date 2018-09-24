@@ -90,7 +90,7 @@ var (
 	eventPrice map[int64]int64
 	canceled   map[int64]time.Time
 	lastID     int64
-	reportsG   []Report
+	reportsG   []*Report
 )
 
 func sessUserID(c echo.Context) int64 {
@@ -970,7 +970,7 @@ func getAdminEventSaleById(c echo.Context) error {
 	}
 	defer rows.Close()
 
-	var reports []Report
+	var reports []*Report
 	for rows.Next() {
 		var reservation Reservation
 		var sheet Sheet
@@ -989,7 +989,7 @@ func getAdminEventSaleById(c echo.Context) error {
 		if reservation.CanceledAt != nil {
 			report.CanceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
 		}
-		reports = append(reports, report)
+		reports = append(reports, &report)
 	}
 	return renderReportCSV(c, reports)
 }
@@ -1006,6 +1006,7 @@ func getAdminEventsSales(c echo.Context) error {
 	for _, v := range reportsG {
 		if canceled_time, ok := canceled[v.ReservationID]; ok {
 			v.CanceledAt = canceled_time.Format("2006-01-02T15:04:05.000000Z")
+			"2006-01-02T15:04:05.000000Z"
 		}
 	}
 	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r inner join sheets s on s.id = r.sheet_id where r.id > ? order by r.id", lastID)
@@ -1035,7 +1036,7 @@ func getAdminEventsSales(c echo.Context) error {
 			report.CanceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
 		}
 		lastID = reservation.ID
-		reportsG = append(reportsG, report)
+		reportsG = append(reportsG, &report)
 	}
 	canceled = make(map[int64]time.Time)
 	err = renderReportCSV(c, reportsG)
@@ -1044,7 +1045,7 @@ func getAdminEventsSales(c echo.Context) error {
 }
 
 func main() {
-	reportsG = make([]Report, 0, 1000)
+	reportsG = make([]*Report, 0, 1000)
 	canceled = make(map[int64]time.Time)
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4",
@@ -1103,7 +1104,7 @@ type Report struct {
 	Price         int64
 }
 
-func renderReportCSV(c echo.Context, reports []Report) error {
+func renderReportCSV(c echo.Context, reports []*Report) error {
 	body := bytes.NewBufferString("reservation_id,event_id,rank,num,price,user_id,sold_at,canceled_at\n")
 	for _, v := range reports {
 		body.WriteString(fmt.Sprintf("%d,%d,%s,%d,%d,%d,%s,%s\n",
