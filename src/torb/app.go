@@ -88,7 +88,7 @@ type Administrator struct {
 
 var (
 	eventPrice map[int64]int64
-	canceled   map[int64]string
+	canceled   map[int64]time.Time
 	lastID     int64
 	reportsG   []Report
 )
@@ -792,8 +792,8 @@ func deleteReservation(c echo.Context) error {
 		return resError(c, "not_permitted", 403)
 	}
 
-	var canceled_at = time.Now().UTC().Format("2006-01-02 15:04:05.000000")
-	if _, err := tx.Exec("UPDATE reservations SET canceled_at = ? WHERE id = ?", canceled_at, reservation.ID); err != nil {
+	var canceled_at = time.Now().UTC()
+	if _, err := tx.Exec("UPDATE reservations SET canceled_at = ? WHERE id = ?", canceled_at.Format("2006-01-02 15:04:05.000000"), reservation.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -1005,7 +1005,7 @@ func getAdminEventsSales(c echo.Context) error {
 	//TODO: ここを直す
 	for _, v := range reportsG {
 		if canceled_time, ok := canceled[v.ReservationID]; ok {
-			v.CanceledAt = canceled_time
+			v.CanceledAt = canceled_time.Format("2006-01-02T15:04:05.000000Z")
 		}
 	}
 	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r inner join sheets s on s.id = r.sheet_id where r.id > ? order by r.id", lastID)
@@ -1037,7 +1037,7 @@ func getAdminEventsSales(c echo.Context) error {
 		lastID = reservation.ID
 		reportsG = append(reportsG, report)
 	}
-	canceled = make(map[int64]string)
+	canceled = make(map[int64]time.Time)
 	err = renderReportCSV(c, reportsG)
 	<-tick
 	return err
@@ -1045,7 +1045,7 @@ func getAdminEventsSales(c echo.Context) error {
 
 func main() {
 	reportsG = make([]Report, 0, 1000)
-	canceled = make(map[int64]string)
+	canceled = make(map[int64]time.Time)
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4",
 		os.Getenv("DB_USER"), os.Getenv("DB_PASS"),
