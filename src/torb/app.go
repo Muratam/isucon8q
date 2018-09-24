@@ -22,7 +22,6 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
-	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -88,8 +87,9 @@ type Administrator struct {
 
 var (
 	eventPrice map[int64]int64
-	canceled []int64 = make([]int64, 0, 100)
-	lastID int64 = 0
+	canceled   map[int64]string
+	lastID     int64
+	reportsG   []Report
 )
 
 func sessUserID(c echo.Context) int64 {
@@ -260,32 +260,32 @@ func toMappedSheets(eventSheets []*Sheets) map[string]*Sheets {
 func initSheets(price int64) []*Sheets {
 	eventSheets := []*Sheets{
 		&Sheets{
-			Price:  price + 5000,
-			Total:  50,
-			Remains:50,
-			Detail : make([]*Sheet,50),
+			Price:   price + 5000,
+			Total:   50,
+			Remains: 50,
+			Detail:  make([]*Sheet, 50),
 		},
 		&Sheets{
-			Price:  price + 3000,
-			Total:  150,
-			Remains:150,
-			Detail : make([]*Sheet,150),
+			Price:   price + 3000,
+			Total:   150,
+			Remains: 150,
+			Detail:  make([]*Sheet, 150),
 		},
 		&Sheets{
-			Price:  price + 1000,
-			Total:  300,
-			Remains:300,
-			Detail : make([]*Sheet,300),
+			Price:   price + 1000,
+			Total:   300,
+			Remains: 300,
+			Detail:  make([]*Sheet, 300),
 		},
 		&Sheets{
-			Price:  price,
-			Total:  500,
-			Remains:500,
-			Detail : make([]*Sheet,500),
+			Price:   price,
+			Total:   500,
+			Remains: 500,
+			Detail:  make([]*Sheet, 500),
 		},
 	}
-	details := make([]Sheet,1000)
-	copy(details,orderdSheets)
+	details := make([]Sheet, 1000)
+	copy(details, orderdSheets)
 	for i := range orderdSheets {
 		eventSheets[getRankIndexByIndex(i)].Detail[getDetailIndexByIndex(i)] = &details[i]
 	}
@@ -302,7 +302,7 @@ func getRankIndexByIndex(i int) int {
 		return 2
 	} else if i < 950 {
 		return 3
-	} else  {
+	} else {
 		return 0
 	}
 }
@@ -313,7 +313,7 @@ func getDetailIndexByIndex(i int) int {
 		return i - 150
 	} else if i < 950 {
 		return i - 450
-	} else  {
+	} else {
 		return i - 950
 	}
 }
@@ -331,7 +331,7 @@ func getIndexBySheetId(sheetId int) int {
 		return sheetId - 51
 	}
 }
-func getEventImpl(eventID, loginUserID int64,tx *sql.Tx) (*Event, error) {
+func getEventImpl(eventID, loginUserID int64, tx *sql.Tx) (*Event, error) {
 	var event Event
 	var row *sql.Row
 	sql1 := "SELECT * FROM events WHERE id = ?"
@@ -791,7 +791,8 @@ func deleteReservation(c echo.Context) error {
 		return resError(c, "not_permitted", 403)
 	}
 
-	if _, err := tx.Exec("UPDATE reservations SET canceled_at = ? WHERE id = ?", time.Now().UTC().Format("2006-01-02 15:04:05.000000"), reservation.ID); err != nil {
+	var canceled_at = time.Now().UTC().Format("2006-01-02 15:04:05.000000")
+	if _, err := tx.Exec("UPDATE reservations SET canceled_at = ? WHERE id = ?", canceled_at, reservation.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -800,7 +801,7 @@ func deleteReservation(c echo.Context) error {
 		return err
 	}
 
-	canceled = append(canceled, reservation.ID)
+	canceled[reservation.ID] = canceled_at
 
 	return c.NoContent(204)
 }
@@ -1000,13 +1001,17 @@ func getAdminEventsSales(c echo.Context) error {
 		adminFewTimeMutex.Unlock()
 	}()
 	//TODO: ここを直す
-	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r where r.id > ? inner join sheets s on s.id = r.sheet_id order by r.id", lastID)
+	for _, v := range reportsG {
+		if canceled_time, ok := canceled[v.ReservationID]; ok {
+			v.CanceledAt = canceled_time
+		}
+	}
+	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r inner join sheets s on s.id = r.sheet_id where r.id > ? order by r.id", lastID)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
-	var reports []Report
 	for rows.Next() {
 		var reservation Reservation
 		var sheet Sheet
@@ -1027,14 +1032,19 @@ func getAdminEventsSales(c echo.Context) error {
 		if reservation.CanceledAt != nil {
 			report.CanceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
 		}
+		lastID = reservation.ID
 		reports = append(reports, report)
 	}
+	canceled = make(map[int64]string)
 	err = renderReportCSV(c, reports)
 	<-tick
 	return err
 }
 
 func main() {
+	reportsG = make([]int64, 0, 100)
+	canceled = make(map[int64]string)
+
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4",
 		os.Getenv("DB_USER"), os.Getenv("DB_PASS"),
 		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"),
