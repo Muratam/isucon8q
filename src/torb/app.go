@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/middleware"
+	"github.com/sevenNt/echo-pprof"
 )
 
 type User struct {
@@ -890,6 +891,7 @@ func postAdminEvents(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	eventPrice[eventID] = int64(params.Price)
 	return c.JSON(200, event)
 }
 func getAdminEventById(c echo.Context) error {
@@ -1033,16 +1035,16 @@ func getAdminEventsSales(c echo.Context) error {
 			report.CanceledAt = reservation.CanceledAt.Format("2006-01-02T15:04:05.000000Z")
 		}
 		lastID = reservation.ID
-		reports = append(reports, report)
+		reportsG = append(reportsG, report)
 	}
 	canceled = make(map[int64]string)
-	err = renderReportCSV(c, reports)
+	err = renderReportCSV(c, reportsG)
 	<-tick
 	return err
 }
 
 func main() {
-	reportsG = make([]int64, 0, 100)
+	reportsG = make([]Report, 0, 1000)
 	canceled = make(map[int64]string)
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4",
