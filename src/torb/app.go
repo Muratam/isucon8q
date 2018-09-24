@@ -713,7 +713,7 @@ func postReservation(c echo.Context) error {
 	}
 	var sheet Sheet
 	var reservationID int64
-	if err := tx.QueryRow("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL FOR UPDATE) AND `rank` = ? ORDER BY RAND() LIMIT 1", event.ID, params.Rank).Scan(&sheet.ID, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
+	if err := tx.QueryRow("SELECT * FROM sheets WHERE id NOT IN (SELECT sheet_id FROM reservations WHERE event_id = ? AND canceled_at IS NULL) AND `rank` = ? ORDER BY RAND() LIMIT 1", event.ID, params.Rank).Scan(&sheet.ID, &sheet.Rank, &sheet.Num, &sheet.Price); err != nil {
 		if err == sql.ErrNoRows {
 			return resError(c, "sold_out", 409)
 		}
@@ -1002,7 +1002,6 @@ func getAdminEventsSales(c echo.Context) error {
 	defer func() {
 		adminFewTimeMutex.Unlock()
 	}()
-	//TODO: ここを直す
 	for _, v := range reportsG {
 		if canceled_time, ok := canceled[v.ReservationID]; ok {
 			v.CanceledAt = canceled_time.Format("2006-01-02T15:04:05.000000Z")
@@ -1022,7 +1021,6 @@ func getAdminEventsSales(c echo.Context) error {
 		}
 		report := Report{
 			ReservationID: reservation.ID,
-			//todo
 			EventID:/*event.ID*/ reservation.EventID,
 			Rank:   sheet.Rank,
 			Num:    sheet.Num,
