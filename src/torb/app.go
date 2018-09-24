@@ -1006,7 +1006,6 @@ func getAdminEventsSales(c echo.Context) error {
 	for _, v := range reportsG {
 		if canceled_time, ok := canceled[v.ReservationID]; ok {
 			v.CanceledAt = canceled_time.Format("2006-01-02T15:04:05.000000Z")
-			"2006-01-02T15:04:05.000000Z"
 		}
 	}
 	rows, err := db.Query("select r.*, s.rank as sheet_rank, s.num as sheet_num, s.price as sheet_price from reservations r inner join sheets s on s.id = r.sheet_id where r.id > ? order by r.id", lastID)
